@@ -2,7 +2,7 @@
 
 Private sports-market intelligence for AFL, tennis, MMA, and boxing. The product is designed to estimate fair prices, compare them with available market prices, manage a paper bankroll, and make **pass** a first-class decision.
 
-> This repository currently uses demonstration data. Nothing displayed by the application is betting advice or a validated production forecast.
+> The current application renders honest empty states and has no production runtime fixtures. Nothing displayed by the application is betting advice or a validated production forecast.
 
 ## Current slice
 
@@ -17,6 +17,7 @@ Private sports-market intelligence for AFL, tennis, MMA, and boxing. The product
 
 - [Defined features](docs/FEATURES.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Architecture decisions](docs/adr/README.md)
 - [Brand and mobile interface direction](docs/BRAND.md)
 
 ## Local development

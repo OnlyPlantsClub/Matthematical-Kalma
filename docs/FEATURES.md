@@ -4,7 +4,7 @@ This catalogue defines the intended product boundaries. Status values are **impl
 
 ## F01 — Market board
 
-**Status:** implemented with demonstration data
+**Status:** interface implemented with an honest empty state; durable data is planned
 
 Provides one normalised view of upcoming supported events, observed prices, model probabilities, confidence, and calculated edge.
 
