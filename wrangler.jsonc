@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "matthematical-kalma-dev",
+  "main": "vinext/server/app-router-entry",
+  "compatibility_date": "2026-08-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": true,
+  "vars": {
+    "APP_ENVIRONMENT": "development"
+  },
+  "assets": {
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "matthematical-kalma-dev",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": { "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 }
+  },
+  "env": {
+    "staging": {
+      "name": "matthematical-kalma-staging",
+      "workers_dev": true,
+      "preview_urls": true,
+      "vars": {
+        "APP_ENVIRONMENT": "staging"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "matthematical-kalma-staging",
+          "migrations_dir": "migrations"
+        }
+      ]
+    },
+    "production": {
+      "name": "matthematical-kalma-production",
+      "workers_dev": false,
+      "preview_urls": false,
+      "vars": {
+        "APP_ENVIRONMENT": "production"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "matthematical-kalma-production",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  }
+}

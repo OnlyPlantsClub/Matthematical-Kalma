@@ -6,21 +6,22 @@
 
 ## Context
 
-The private MVP needs Oliver and Matthew to have distinct authenticated identities and strictly isolated personal records. Sites identity/SIWC will no longer be present after direct Cloudflare deployment.
+The private MVP initially admits one administrator and later adds Matthew as a beta tester. Every admitted person must have a distinct authenticated identity and strictly isolated personal records. Sites identity/SIWC will no longer be present after direct Cloudflare deployment.
 
 ## Decision
 
-Protect production and preview Workers with Cloudflare Access. Initially use One-Time PIN with an allow policy containing exactly the administrator address and Matthew’s confirmed address. Use Worker-native validated Access context where available; otherwise validate the Access JWT signature, issuer, audience and expiry before creating an `OwnerContext`. Map the stable issuer/subject pair to an opaque internal user ID. Email is allowlist/contact metadata, never the application ownership key.
+Protect production and non-production Workers with Cloudflare Access. Initially use One-Time PIN with an allow policy containing only `Admin@matthematicalkalma.com` (normalised case-insensitively). Set the global, application and policy session durations to one month, Cloudflare Access’s longest currently supported duration, rather than using an unlimited session. Use Worker-native validated Access context where available; otherwise validate the Access JWT signature, issuer, audience and expiry before creating an `OwnerContext`. Map the stable issuer/subject pair to an opaque internal user ID. Email is allowlist/contact metadata, never the application ownership key.
 
-Every personal repository operation requires the server-derived owner context and scopes reads and writes by `owner_user_id`. Jobs require an explicit service capability and audit reason. Step 2 must test isolation across direct IDs, lists, search, pagination, aggregates, jobs, export and deletion for two users.
+Every personal repository operation requires the server-derived owner context and scopes reads and writes by `owner_user_id`. Jobs require an explicit service capability and audit reason. Step 2 tests isolation across direct IDs, lists, search, pagination, aggregates, jobs, export and deletion using two synthetic subjects. Matthew’s identity is not a Step 2 prerequisite.
 
 ## Consequences
 
-- Both intended users must be admitted in the Cloudflare Access policy before Step 2 acceptance.
+- Only the administrator is initially admitted. Matthew is added later by exact address, signs in to establish a different Access subject and receives a separate internal user.
 - Authentication and data authorization remain separate layers.
 - A later public/product-managed identity provider can add mappings without changing domain ownership.
-- Access configuration, JWT validation and two-user isolation are deployment-blocking tests.
-- Step 2 authentication implementation cannot begin until the Access team domain/application, audience, exact two-email allowlist, OTP delivery and session duration are confirmed.
+- Access configuration, JWT validation and synthetic two-subject isolation are Step 2 acceptance tests.
+- Step 2 is **Not started — awaiting infrastructure readiness**: administrator 2FA/recovery, pending email verification/OTP delivery, Access application/audience confirmation and a non-production Worker deployment.
+- Adding Matthew is a later beta-admission procedure, not a prerequisite.
 
 ## Alternatives considered
 
@@ -34,3 +35,4 @@ Every personal repository operation requires the server-derived owner context an
 - [Cloudflare Access for Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/)
 - [Access application tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/)
 - [One-Time PIN login](https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/one-time-pin/)
+- [Access session management](https://developers.cloudflare.com/cloudflare-one/access-controls/access-settings/session-management/)

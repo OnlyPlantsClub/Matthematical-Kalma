@@ -8,3 +8,5 @@ Accepted ADRs constrain implementation until explicitly superseded.
 - [ADR-0004: Time and numeric representation](0004-time-and-numeric-representation.md)
 - [ADR-0005: Direct Cloudflare deployment](0005-direct-cloudflare-deployment.md)
 - [ADR-0006: Cloudflare Access and strict user isolation](0006-cloudflare-access-and-user-isolation.md)
+
+Operational companion: [Cloudflare foundation and admission runbook](../CLOUDFLARE_FOUNDATION.md).

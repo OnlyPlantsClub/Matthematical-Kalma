@@ -258,20 +258,20 @@ Recommendations may be invalidated, expired or withdrawn, never edited silently.
 - Deletion is authenticated, confirmed, asynchronous and resumable: freeze writes; optional export; revoke access; delete/anonymise user data in dependency order; retain only required non-identifying tombstones/shared facts; verify completion. Backups expire per retention.
 - Shared market/model facts survive a user deletion. Personalised recommendation/exposure links are erased or irreversibly anonymised.
 
-Step 2 must prove two-user isolation across object IDs, lists, search, pagination, aggregates, jobs, export and deletion.
+Step 2 must prove owner isolation with two synthetic test subjects before beta admission. Matthew is not an initial identity or a Step 2 prerequisite; when admitted later, he receives a distinct Access subject and internal user and never shares administrator data.
 
 ### Selected authentication approach
 
-**Selected for the private MVP:** Cloudflare Access protecting the Worker, with One-Time PIN and an allow policy containing exactly the administrator address and Matthew’s confirmed address. Use Worker-native Access context where available; otherwise validate the Access application JWT signature, issuer, audience, expiry and subject. Store a unique `(issuer, subject)` identity mapping and provision each permitted person into a different internal user row. Do not use a domain-wide allow rule, Cloudflare-account membership, a shared email, or email alone as record ownership.
+**Selected for the private MVP:** Cloudflare Access protecting the Worker, with One-Time PIN and an exact-email allow policy initially containing only `Admin@matthematicalkalma.com` (email comparison normalised case-insensitively). Configure the global, application and policy session durations to **one month**, the longest currently supported practical duration, rather than attempting an unlimited session. Use Worker-native Access context where available; otherwise validate the Access application JWT signature, issuer, audience, expiry and subject. Store a unique `(issuer, subject)` identity mapping and provision each permitted person into a different internal user row. Do not use a domain-wide allow rule, Cloudflare-account membership, a shared email, or email alone as record ownership.
 
 Alternatives considered:
 
 - **External managed auth (Clerk, Auth0 or WorkOS):** suitable when public self-service accounts, passkeys, recovery and richer lifecycle management are required. Deferred because the private two-user MVP does not need an app-owned login surface and would add another security/data processor.
 - **Custom magic-link/passkey auth in the Worker:** rejected for MVP because token issuance, credential recovery, abuse protection and session security would become application responsibilities.
-- **Cloudflare account membership:** rejected as product identity because it couples application users to infrastructure administrators and cannot represent Matthew as an ordinary isolated product user cleanly.
+- **Cloudflare account membership:** rejected as product identity because it couples application users to infrastructure administrators and cannot represent later beta users as ordinary isolated product users cleanly.
 - **Access with a whole-domain allow rule:** rejected; only exact identities are admitted.
 
-Identity implementation is deliberately not started until the Access team domain/application, audience, exact two-email allowlist, OTP delivery, session duration and local/staging test identities are confirmed.
+Identity implementation is deliberately not started while infrastructure readiness is incomplete. The remaining gates are administrator 2FA and recovery confirmation, administrator email verification/OTP delivery, Access team domain/application/audience confirmation, and a non-production Worker deployment. Matthew’s later admission is not a gate.
 
 ## 11. Initial APIs and services
 
@@ -300,7 +300,7 @@ Errors have stable codes and request IDs. Commands include schema version, idemp
 
 - Ordered immutable SQL migrations live in source; never edit an applied migration.
 - Prefer additive expand/contract. Destructive changes need backup/export verification, data migration, forward-fix plan and approval.
-- Each environment has a separately named Cloudflare D1 database, binding and migration history. Migrations are versioned SQL in GitHub, applied by database name in a gated deployment job, and production verifies foreign keys and integrity.
+- The approved Worker and D1 names are `matthematical-kalma-dev`, `matthematical-kalma-staging` and `matthematical-kalma-production`; each uses the `DB` binding and a separate migration history. Migrations are versioned SQL in GitHub, applied by database name in a gated deployment job, and production verifies foreign keys, schema readability and domain reconciliation. Full file-level integrity checks use an approved export procedure because D1 rejects `PRAGMA integrity_check` through its SQL authorizer.
 - Before a production schema change, record a D1 Time Travel bookmark; use periodic D1 export to private R2 when retention beyond the platform recovery window is required.
 - Backfills are resumable/idempotent with progress and reconciliation.
 - Seed only deterministic reference/test data in local/test. Production starts with genuine empty user state and has no demo import path.
@@ -329,15 +329,15 @@ Errors have stable codes and request IDs. Commands include schema version, idemp
 | --- | --- | --- |
 | Sites hosting | **Cloudflare Worker with Workers Static Assets** | Preserve the Vinext build only if its output is directly deployable; otherwise adopt the supported Cloudflare Vite/OpenNext adapter in a dedicated platform migration before feature work. Do not choose Pages for the new production target. |
 | Sites-managed D1 (not yet bound) | **Cloudflare D1** | No production data transfer exists. Create separate dev/staging/prod databases and committed migrations; bind `DB` per environment. |
-| Sites identity | **Cloudflare Access** | No identity rows exist to migrate. Confirm two exact users, configure OTP allowlist, then create internal `users` and `user_identities(issuer, subject)`. |
+| Sites identity | **Cloudflare Access** | No identity rows exist to migrate. Initially admit only `Admin@matthematicalkalma.com`; create internal `users` and `user_identities(issuer, subject)` in Step 2. Add Matthew later as a separate beta identity. |
 | Sites static assets | **Workers Static Assets** | Build-generated JS/CSS/images deploy atomically with the Worker. |
 | Future uploads/artifacts | **Private R2** | Create only when Step 2/ingestion needs it. Use Worker bindings; keep metadata/checksums/ownership in D1 and deny public buckets for personal data. |
 | Sites background capability | **Cron + Queues + Workflows** | Cron starts schedules; Queues buffer independent jobs; Workflows own durable dependent steps. Retain domain idempotency because Queue delivery is at least once. |
 | Sites runtime values | **Wrangler bindings, vars and secrets** | Commit non-secret binding declarations/config; set environment-specific secrets through Cloudflare encrypted secrets. Never commit tokens or provider keys. |
-| Sites live URL | **`https://matthematicalkalma.com`** | Transfer authoritative DNS to Cloudflare, verify DNSSEC/records, attach Worker Custom Domain, enforce HTTPS/HSTS after validation, and protect it with Access before personal data exists. Keep the old Site read-only only for a bounded rollback window. |
+| Sites live URL | **`https://matthematicalkalma.com`** | Cloudflare authoritative DNS is active and Microsoft has verified MX, SPF and autodiscover. Later attach the Worker Custom Domain, enforce HTTPS/HSTS after validation, and protect it with Access before personal data exists. Keep the old Site read-only only for a bounded rollback window. |
 | Sites source publication | **GitHub → Workers Builds or GitHub Actions → Wrangler** | GitHub remains canonical. Require checks on pull requests; deploy preview/staging from non-production refs and production from protected `main` with a scoped Cloudflare API token and gated D1 migration job. |
 
-Cloudflare account administration uses `admin@matthematicalkalma.com`, MFA and least-privilege API tokens. Infrastructure administration is never an application-user role. Repository, Wrangler configuration, migrations and deployment workflow stay in [OnlyPlantsClub/Matthematical-Kalma](https://github.com/OnlyPlantsClub/Matthematical-Kalma); Notion records decisions and delivery status only.
+Cloudflare account administration uses `admin@matthematicalkalma.com`, MFA and least-privilege API tokens. Administrator 2FA/recovery is currently being completed and email verification is pending. Infrastructure administration is never an application-user role. Repository, Wrangler configuration, migrations and deployment workflow stay in [OnlyPlantsClub/Matthematical-Kalma](https://github.com/OnlyPlantsClub/Matthematical-Kalma); Notion records decisions and delivery status only.
 
 Production service map:
 
@@ -356,8 +356,9 @@ Decided now:
 
 - Cloudflare Worker with Workers Static Assets as the production modular monolith; Pages is not the target.
 - Cloudflare-managed D1 relational authority and private R2 for retained artifacts/exports/uploads.
-- Cloudflare Access with an exact two-user allowlist; validated Access issuer/subject mapped internally; mandatory server owner scoping.
-- `matthematicalkalma.com` on Cloudflare DNS as the production origin.
+- Cloudflare Access with a single initial administrator allow rule, one-month session duration, validated Access issuer/subject mapping and mandatory server owner scoping; later beta users are admitted individually.
+- `matthematicalkalma.com` is active on Cloudflare authoritative DNS as the production origin; Microsoft MX, SPF and autodiscover are verified.
+- Worker/D1 environment names are `matthematical-kalma-dev`, `matthematical-kalma-staging` and `matthematical-kalma-production`.
 - GitHub as canonical source with GitHub-based CI/CD to Cloudflare.
 - Cron Triggers, Queues and Workflows selected by job shape.
 - Append-only observations, forecasts, recommendations, ledger, settlements and corrections.
@@ -377,7 +378,7 @@ Safely deferred:
 - Exact R2 retention, Workflow boundaries, notifications, warehouse and service extraction.
 - Shared workspaces, which require explicit future workspace/roles and never weaken `owner_user_id`.
 
-Provider selection does not block Step 2. The platform dependency is admitting both intended users through a Cloudflare Access policy and validating Access JWTs in the Worker; the internal identity and isolation model is unchanged.
+Provider selection and Matthew’s beta admission do not block Step 2. The platform dependency is completing administrator security/recovery, verifying administrator OTP delivery, proving the non-production Worker path and confirming the Access application/audience; the internal identity and isolation model is unchanged.
 
 ### Cloudflare deployment and migration pathway
 
@@ -388,7 +389,7 @@ GitHub is the canonical source and deployment origin. `OnlyPlantsClub/Matthemati
 | Web runtime | Worker with Static Assets | One Vinext build and Worker; no Pages split |
 | Relational state | D1 binding | Separate local, preview/staging and production databases and migration histories |
 | Private identity | Cloudflare Access | Verify Access JWT server-side; map issuer/subject, never trust email or client owner IDs |
-| Domain and TLS | Cloudflare authoritative DNS | `matthematicalkalma.com`; preserve Microsoft 365 DNS before nameserver cutover |
+| Domain and TLS | Cloudflare authoritative DNS | `matthematicalkalma.com` is active; Microsoft MX, SPF and autodiscover are verified |
 | Scheduled work | Cron Triggers | Small periodic orchestration only; invoke audited application services |
 | Async ingestion | Queues | Add when provider ingestion needs retry/back-pressure; not required for the first vertical slice |
 | Long-running processes | Workflows | Deferred until model/import jobs exceed ordinary Worker execution patterns |
@@ -398,26 +399,26 @@ GitHub is the canonical source and deployment origin. `OnlyPlantsClub/Matthemati
 
 Migration sequence:
 
-1. Finish Microsoft 365 email setup at GoDaddy and record every MX, SPF/TXT, DKIM/CNAME and autodiscover record.
-2. Add `matthematicalkalma.com` to Cloudflare, import the zone, reconcile the Microsoft records, then change GoDaddy nameservers.
-3. Verify authoritative DNS and bidirectional email before application cutover.
-4. Create Cloudflare development/staging and production D1 databases and commit immutable migrations and Wrangler configuration without IDs or secrets that should remain environment-managed.
-5. Configure Cloudflare Access for the administrator and Matthew; validate JWT issuer, audience, expiry and signature at the Worker boundary.
-6. Implement `/api/v1/me`, identity mapping and owner-scoped repositories; prove the two-user isolation matrix before personal features.
-7. Add GitHub deployment environments and protected production deployment, bind the custom domain, deploy an empty-state build and run smoke checks.
+1. **Complete:** activate Cloudflare authoritative DNS for `matthematicalkalma.com`; Microsoft has verified MX, SPF and autodiscover and reports email ready.
+2. **In progress:** finish Cloudflare administrator 2FA, recovery and pending email verification. Do not create deployment credentials or secrets before this gate passes.
+3. Commit the Worker Static Assets configuration, approved environment/D1 binding names, ordered migrations and non-deploying CI checks.
+4. After the security gate, create only development/staging resources, configure Access for `Admin@matthematicalkalma.com` with One-Time PIN and one-month sessions, and prove a non-production deployment.
+5. Implement `/api/v1/me`, identity mapping and owner-scoped repositories; use two synthetic subjects to prove the isolation matrix before personal features.
+6. Admit Matthew later by adding his exact address to Access, signing in once to obtain a distinct subject and provisioning a distinct internal user. Run the isolation regression suite before granting beta access.
+7. Only after explicit production readiness approval, create production resources/credentials/secrets, bind the custom domain and enable the gated production migration/deployment workflow.
 
 This pathway supersedes Sites hosting and Sites/SIWC identity assumptions. ADR-0001 and ADR-0002 remain as historical records and are superseded by ADR-0005 and ADR-0006.
 
 ### Revised Step 2 prerequisites
 
-1. Cloudflare account ownership and admin MFA/recovery are verified; least-privilege deploy credentials are available.
-2. `matthematicalkalma.com` is active on Cloudflare DNS with required mail records preserved during transfer.
-3. Worker deployment path is proven from the existing GitHub repository in a non-production environment; Pages/Sites are not dual authorities.
-4. Dev, staging and production names/bindings for Worker, D1 and optional R2 are approved.
-5. Cloudflare Access team domain, Worker application, audience, exact administrator and Matthew email addresses, OTP delivery and session duration are confirmed.
-6. Two different Access subjects map to two different internal users; unauthenticated, wrong-audience and non-allowlisted requests fail closed.
-7. D1 migration/runbook covers forward-only migrations, Time Travel bookmark, integrity/foreign-key checks and rollback/forward-fix.
-8. CI requires typecheck, lint, tests, build, migration review and secret scanning before production deployment.
+1. **Pending:** Cloudflare administrator 2FA, recovery and email verification are confirmed.
+2. **Complete:** `matthematicalkalma.com` is active on Cloudflare authoritative DNS; Microsoft MX, SPF and autodiscover are verified and email is ready.
+3. **Prepared, proof pending:** the existing GitHub repository contains a non-production Worker/Static Assets configuration; prove a development or staging deployment after the administrator security gate.
+4. **Complete:** Worker/D1 names are approved: `matthematical-kalma-dev`, `matthematical-kalma-staging`, `matthematical-kalma-production`, all with binding `DB`.
+5. **Pending:** confirm the Access team domain, application and audience; admit only `Admin@matthematicalkalma.com`; verify One-Time PIN; set global/application/policy sessions to one month.
+6. **Prepared:** ordered D1 migration/runbook covers forward-only migrations, Time Travel bookmark, foreign-key/schema-read checks, export integrity verification when required and forward fixes.
+7. **Prepared:** CI requires typecheck, lint, tests, build, migration review and secret scanning and performs no deployment.
+8. **Step 2 acceptance, not an infrastructure prerequisite:** synthetic distinct Access subjects map to distinct internal users and all negative/isolation cases fail closed. Matthew is admitted later and repeats this regression suite.
 9. Australian responsible-gambling copy/control requirements remain product acceptance criteria and are not delegated to the platform.
 
 ## Step 1 acceptance map
@@ -437,6 +438,7 @@ This pathway supersedes Sites hosting and Sites/SIWC identity assumptions. ADR-0
 - [Cloudflare Access for Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/)
 - [Cloudflare Access application token](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/)
 - [Cloudflare Access One-Time PIN](https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/one-time-pin/)
+- [Cloudflare Access session management](https://developers.cloudflare.com/cloudflare-one/access-controls/access-settings/session-management/)
 - [Cloudflare D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/)
 - [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/)
 - [Workers Git integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/)

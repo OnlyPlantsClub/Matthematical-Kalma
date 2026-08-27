@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.16.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Check generated Worker binding types
+        run: pnpm worker:types:check
+      - name: Lint
+        run: pnpm lint
+      - name: Tests
+        run: pnpm test
+      - name: Build Worker and Static Assets
+        run: pnpm build
+      - name: Review ordered D1 migrations
+        run: pnpm migrations:validate
+      - name: Apply and validate D1 migrations locally
+        run: |
+          pnpm migrations:apply:local
+          pnpm d1:validate:local
+      - name: Scan tracked source for secrets
+        run: pnpm security:secrets
