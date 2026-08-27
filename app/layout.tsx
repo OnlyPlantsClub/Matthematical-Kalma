@@ -7,13 +7,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Matthematical Kalma — Sports Market Intelligence',
     description: 'Price the game. Mind your Kalma.',
-    images: [{ url: 'https://edgewise-intelligence.oliverchristianhall.chatgpt.site/og.png', width: 1730, height: 909, alt: 'matthematical kalma — Good odds. Better Kalma.' }],
+    images: [{ url: '/og.png', width: 1730, height: 909, alt: 'matthematical kalma — Good odds. Better Kalma.' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Matthematical Kalma — Sports Market Intelligence',
     description: 'Price the game. Mind your Kalma.',
-    images: ['https://edgewise-intelligence.oliverchristianhall.chatgpt.site/og.png'],
+    images: ['/og.png'],
   },
 };
 
