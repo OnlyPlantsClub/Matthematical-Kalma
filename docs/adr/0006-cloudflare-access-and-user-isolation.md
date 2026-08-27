@@ -20,7 +20,7 @@ Every personal repository operation requires the server-derived owner context an
 - Authentication and data authorization remain separate layers.
 - A later public/product-managed identity provider can add mappings without changing domain ownership.
 - Access configuration, JWT validation and synthetic two-subject isolation are Step 2 acceptance tests.
-- Step 2 is **Not started — awaiting infrastructure readiness**: administrator 2FA/recovery, pending email verification/OTP delivery, Access application/audience confirmation and a non-production Worker deployment.
+- Step 2 is **Not started — awaiting remaining infrastructure readiness**: administrator email verification and 2FA/recovery are complete; Access application/audience confirmation, administrator One-Time PIN delivery and a protected non-production Worker deployment remain outstanding.
 - Adding Matthew is a later beta-admission procedure, not a prerequisite.
 
 ## Alternatives considered

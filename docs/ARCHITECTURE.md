@@ -271,7 +271,7 @@ Alternatives considered:
 - **Cloudflare account membership:** rejected as product identity because it couples application users to infrastructure administrators and cannot represent later beta users as ordinary isolated product users cleanly.
 - **Access with a whole-domain allow rule:** rejected; only exact identities are admitted.
 
-Identity implementation is deliberately not started while infrastructure readiness is incomplete. The remaining gates are administrator 2FA and recovery confirmation, administrator email verification/OTP delivery, Access team domain/application/audience confirmation, and a non-production Worker deployment. Matthew’s later admission is not a gate.
+Identity implementation is deliberately not started while infrastructure readiness is incomplete. Administrator email verification, 2FA/recovery and production-domain migration are complete. The remaining gates are Access team domain/application/audience confirmation, administrator One-Time PIN delivery, protected non-production deployment configuration and a non-production Worker deployment. Matthew’s later admission is not a gate.
 
 ## 11. Initial APIs and services
 
@@ -337,7 +337,7 @@ Errors have stable codes and request IDs. Commands include schema version, idemp
 | Sites live URL | **`https://matthematicalkalma.com`** | Cloudflare authoritative DNS is active and Microsoft has verified MX, SPF and autodiscover. Later attach the Worker Custom Domain, enforce HTTPS/HSTS after validation, and protect it with Access before personal data exists. Keep the old Site read-only only for a bounded rollback window. |
 | Sites source publication | **GitHub → Workers Builds or GitHub Actions → Wrangler** | GitHub remains canonical. Require checks on pull requests; deploy preview/staging from non-production refs and production from protected `main` with a scoped Cloudflare API token and gated D1 migration job. |
 
-Cloudflare account administration uses `admin@matthematicalkalma.com`, MFA and least-privilege API tokens. Administrator 2FA/recovery is currently being completed and email verification is pending. Infrastructure administration is never an application-user role. Repository, Wrangler configuration, migrations and deployment workflow stay in [OnlyPlantsClub/Matthematical-Kalma](https://github.com/OnlyPlantsClub/Matthematical-Kalma); Notion records decisions and delivery status only.
+Cloudflare account administration uses the verified `cloudflare@matthematicalkalma.com` alias with authenticator MFA, retained recovery codes and least-privilege API tokens. `Admin@matthematicalkalma.com` remains the initial Cloudflare Access application identity; infrastructure administration is never an application-user role. The superseded Cloudflare account stays untouched during the rollback window and is not a valid target for new resources or credentials. Account identifiers and deployment credentials belong only in protected Matthematical Kalma GitHub environment configuration, never source or Notion. Repository, Wrangler configuration, migrations and deployment workflow stay in [OnlyPlantsClub/Matthematical-Kalma](https://github.com/OnlyPlantsClub/Matthematical-Kalma); Notion records decisions and delivery status only.
 
 Production service map:
 
@@ -400,7 +400,7 @@ GitHub is the canonical source and deployment origin. `OnlyPlantsClub/Matthemati
 Migration sequence:
 
 1. **Complete:** activate Cloudflare authoritative DNS for `matthematicalkalma.com`; Microsoft has verified MX, SPF and autodiscover and reports email ready.
-2. **In progress:** finish Cloudflare administrator 2FA, recovery and pending email verification. Do not create deployment credentials or secrets before this gate passes.
+2. **Complete:** Cloudflare administrator alias verification, authenticator 2FA and recovery-code capture are confirmed; inbound/outbound mail and alias delivery tests passed.
 3. Commit the Worker Static Assets configuration, approved environment/D1 binding names, ordered migrations and non-deploying CI checks.
 4. After the security gate, create only development/staging resources, configure Access for `Admin@matthematicalkalma.com` with One-Time PIN and one-month sessions, and prove a non-production deployment.
 5. Implement `/api/v1/me`, identity mapping and owner-scoped repositories; use two synthetic subjects to prove the isolation matrix before personal features.
@@ -411,9 +411,9 @@ This pathway supersedes Sites hosting and Sites/SIWC identity assumptions. ADR-0
 
 ### Revised Step 2 prerequisites
 
-1. **Pending:** Cloudflare administrator 2FA, recovery and email verification are confirmed.
-2. **Complete:** `matthematicalkalma.com` is active on Cloudflare authoritative DNS; Microsoft MX, SPF and autodiscover are verified and email is ready.
-3. **Prepared, proof pending:** the existing GitHub repository contains a non-production Worker/Static Assets configuration; prove a development or staging deployment after the administrator security gate.
+1. **Complete:** Cloudflare administrator email verification, authenticator 2FA and recovery-code capture are confirmed.
+2. **Complete:** `matthematicalkalma.com` is active on the replacement Cloudflare authoritative zone; Microsoft MX, SPF, DMARC, domain verification and autodiscover resolve correctly, and inbound/outbound mail tests passed.
+3. **Prepared, proof pending:** the existing GitHub repository contains a non-production Worker/Static Assets configuration; create protected Matthematical Kalma GitHub environments with the replacement account target and scoped credentials, then prove a development or staging deployment.
 4. **Complete:** Worker/D1 names are approved: `matthematical-kalma-dev`, `matthematical-kalma-staging`, `matthematical-kalma-production`, all with binding `DB`.
 5. **Pending:** confirm the Access team domain, application and audience; admit only `Admin@matthematicalkalma.com`; verify One-Time PIN; set global/application/policy sessions to one month.
 6. **Prepared:** ordered D1 migration/runbook covers forward-only migrations, Time Travel bookmark, foreign-key/schema-read checks, export integrity verification when required and forward fixes.
