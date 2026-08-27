@@ -11,6 +11,7 @@ const databaseId = '11111111-1111-4111-8111-111111111111';
 function sourceConfig(name = 'matthematical-kalma-dev', databaseName = name) {
   return {
     name,
+    main: 'index.js',
     workers_dev: true,
     vars: { APP_ENVIRONMENT: name.endsWith('-dev') ? 'development' : 'staging' },
     assets: { binding: 'ASSETS', directory: '../client' },
@@ -27,9 +28,14 @@ test('allowlists only development and staging targets', () => {
 });
 
 test('injects only a valid environment-scoped D1 identifier', () => {
-  const result = createDeploymentConfig(sourceConfig(), 'development', databaseId);
+  const result = createDeploymentConfig(sourceConfig(), 'development', databaseId, {
+    inputPath: 'dist/server/wrangler.json',
+    outputPath: '.wrangler/deploy/wrangler.nonproduction.json',
+  });
   assert.equal(result.d1_databases[0].database_id, databaseId);
   assert.equal(result.d1_databases[0].binding, 'DB');
+  assert.equal(result.main, '../../dist/server/index.js');
+  assert.equal(result.assets.directory, '../../dist/client');
 });
 
 test('fails closed for missing credentials, unexpected resources, routes, and bindings', () => {
@@ -51,4 +57,3 @@ test('fails closed for missing credentials, unexpected resources, routes, and bi
     /Static Assets binding/,
   );
 });
-

@@ -28,7 +28,7 @@ export function resolveTarget(targetName) {
   return target;
 }
 
-export function createDeploymentConfig(sourceConfig, targetName, databaseId) {
+export function createDeploymentConfig(sourceConfig, targetName, databaseId, paths = {}) {
   const target = resolveTarget(targetName);
   if (!UUID_PATTERN.test(databaseId ?? '')) {
     throw new Error('CLOUDFLARE_D1_DATABASE_ID is missing or malformed.');
@@ -55,8 +55,22 @@ export function createDeploymentConfig(sourceConfig, targetName, databaseId) {
     throw new Error('Generated D1 binding is outside the approved target allowlist.');
   }
 
+  const inputDirectory = path.dirname(path.resolve(paths.inputPath ?? 'dist/server/wrangler.json'));
+  const outputDirectory = path.dirname(
+    path.resolve(paths.outputPath ?? '.wrangler/deploy/wrangler.nonproduction.json'),
+  );
+  const relativeToOutput = (sourcePath) => {
+    const relativePath = path.relative(outputDirectory, path.resolve(inputDirectory, sourcePath));
+    return relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
+  };
+
   return {
     ...sourceConfig,
+    main: relativeToOutput(sourceConfig.main),
+    assets: {
+      ...sourceConfig.assets,
+      directory: relativeToOutput(sourceConfig.assets.directory),
+    },
     d1_databases: [{ ...database, database_id: databaseId }],
   };
 }
@@ -98,6 +112,7 @@ async function main() {
     sourceConfig,
     arguments_.target,
     arguments_['database-id'],
+    { inputPath, outputPath },
   );
 
   await mkdir(path.dirname(outputPath), { recursive: true });
@@ -108,4 +123,3 @@ async function main() {
 if (process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href) {
   await main();
 }
-
