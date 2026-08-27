@@ -24,9 +24,15 @@ button { color: inherit; }
 
 .topbar { position: sticky; top: 0; z-index: 20; min-height: 90px; padding: 14px 16px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 9px; background: var(--blue); color: white; box-shadow: 0 2px 0 rgba(0,0,0,.08); }
 .brand { min-width: 0; display: flex; align-items: center; gap: 9px; color: white; text-decoration: none; }
-.brand-mark { position: relative; display: grid; place-items: center; width: 48px; height: 48px; flex: 0 0 48px; border-radius: 13px 13px 17px 13px; background: linear-gradient(145deg, #1687d3, #005ca0); color: white; font-size: 22px; font-weight: 1000; font-style: italic; letter-spacing: -4px; transform: skew(-7deg); box-shadow: inset 0 0 0 2px rgba(255,255,255,.12), 0 4px 10px rgba(0,42,75,.25); }
-.brand-mark span { position: absolute; right: -3px; top: -5px; width: 19px; height: 19px; display: grid; place-items: center; border-radius: 50%; background: var(--green); color: white; font-size: 12px; letter-spacing: 0; font-style: normal; }
-.brand strong { display: none; font-size: 12px; line-height: 1.02; letter-spacing: -.02em; }
+.brand-mark { position: relative; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex: 0 0 48px; border-radius: 13px 13px 17px 13px; background: linear-gradient(145deg, #1687d3, #005ca0); font-size: 23px; letter-spacing: -4px; transform: skew(-7deg); box-shadow: inset 0 0 0 2px rgba(255,255,255,.12), 0 4px 10px rgba(0,42,75,.25); }
+.brand-mark > i, .brand-mark > b { font-style: italic; font-weight: 1000; }
+.brand-mark > i { color: white; }
+.brand-mark > b { color: var(--yellow); }
+.brand-mark > span { position: absolute; right: -3px; top: -5px; width: 19px; height: 19px; display: grid; place-items: center; border-radius: 50%; background: var(--green); color: white; font-size: 12px; letter-spacing: 0; font-style: normal; }
+.brand-name { display: grid; font-size: 11px; line-height: .98; letter-spacing: -.04em; }
+.brand-name i, .brand-name b { font-style: italic; font-weight: 1000; }
+.brand-name i { color: white; }
+.brand-name b { color: var(--yellow); }
 .account-block { text-align: right; line-height: 1; }
 .account-block span { display: block; margin-bottom: 5px; font-size: 8px; text-transform: uppercase; letter-spacing: .08em; color: #bfe0f8; }
 .account-block strong { font-size: 17px; }
@@ -131,7 +137,7 @@ button { color: inherit; }
 
 @media (min-width: 640px) {
   .app-shell { max-width: 1220px; margin: 0 auto; background: var(--paper); box-shadow: 0 0 50px rgba(0,45,77,.12); }
-  .brand strong { display: block; }
+  .brand-name { font-size: 12px; }
   .topbar { padding-inline: 28px; }
   .hero { display: grid; grid-template-columns: 1.3fr .7fr; gap: 45px; align-items: end; padding: 42px 36px 34px; }
   .bank-card { margin: 0; }

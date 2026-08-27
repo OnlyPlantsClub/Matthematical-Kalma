@@ -4,6 +4,8 @@
 
 Matthematical Kalma is a deliberately over-serious name for a private sports intelligence tool shared by two friends. The interface can feel energetic and familiar without presenting itself as a bookmaker.
 
+The wordmark is always lowercase, bold and italic. `matthematical` is white and `kalma` is yellow; the compact `mk` mark follows the same white/yellow split.
+
 ## Visual direction
 
 The visual language takes broad inspiration from Australian mobile sportsbook conventions:
