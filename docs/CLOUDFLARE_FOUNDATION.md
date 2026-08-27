@@ -1,6 +1,6 @@
 # Cloudflare foundation and admission runbook
 
-Status: preparatory configuration committed; no Cloudflare resources or secrets provisioned by this change.
+Status: preparatory configuration committed; the replacement Cloudflare account is verified, protected by administrator 2FA/recovery, and authoritative for the production domain. No Worker, D1, deployment credential or application secret has been provisioned by this change.
 
 ## Service and environment map
 
@@ -15,13 +15,15 @@ The Vinext application builds to one Worker plus Workers Static Assets. The Work
 ## Current readiness
 
 - Cloudflare authoritative DNS is active for `matthematicalkalma.com`.
-- Microsoft has verified MX, SPF and autodiscover and reports email ready.
-- Cloudflare administrator 2FA/recovery is in progress and email verification is pending.
-- No production resources, credentials, secrets or deployment may be created until administrator 2FA and recovery are confirmed.
+- Microsoft MX, SPF, DMARC, domain verification and autodiscover resolve from the replacement authoritative zone; inbound and outbound email tests passed.
+- The Cloudflare infrastructure administrator signs in as `cloudflare@matthematicalkalma.com`; email verification, authenticator 2FA and recovery-code capture are complete.
+- `Admin@matthematicalkalma.com` remains the initial application identity admitted by Cloudflare Access. Infrastructure administration and application admission are deliberately separate.
+- The superseded Cloudflare account and its zone remain untouched during the propagation/rollback window. They must never be used for new Matthematical Kalma resources or deployment credentials.
+- The replacement account ID is deployment configuration, not source documentation. Store it only as `CLOUDFLARE_ACCOUNT_ID` in protected Matthematical Kalma GitHub environments when non-production deployment credentials are created.
 
 ## Initial Cloudflare Access configuration
 
-After the account-security gate passes:
+The account-security gate has passed. When Step 2 begins:
 
 1. Create a self-hosted Access application for the non-production Worker hostname.
 2. Enable One-Time PIN and create an Allow policy for exactly `Admin@matthematicalkalma.com`. Do not use an email-domain rule.
@@ -56,6 +58,6 @@ pnpm build
 pnpm security:secrets
 ```
 
-After the security gate, provision and deploy development/staging only. Always use the explicit D1 database name for remote migration commands, take a D1 Time Travel bookmark before a material remote migration, review the pending list, apply forward-only migrations, and run `PRAGMA foreign_key_check`, a schema-contract read and domain reconciliation afterwards. D1 rejects `PRAGMA integrity_check` through its SQL authorizer; use an approved export-and-SQLite procedure when a full file-level integrity check is required.
+Provision and deploy development/staging only. Put the replacement account ID and a dedicated least-privilege non-production API token in protected Matthematical Kalma GitHub environments; never commit either value, and never reuse Sowstead or superseded-account credentials. Always use the explicit D1 database name for remote migration commands, take a D1 Time Travel bookmark before a material remote migration, review the pending list, apply forward-only migrations, and run `PRAGMA foreign_key_check`, a schema-contract read and domain reconciliation afterwards. D1 rejects `PRAGMA integrity_check` through its SQL authorizer; use an approved export-and-SQLite procedure when a full file-level integrity check is required.
 
 Production requires a separate approval gate: protected GitHub environment, least-privilege Cloudflare token, recovery verification, production D1/Worker creation, migration approval, custom-domain/Access validation and smoke/reconciliation checks. Dashboard changes made during bootstrap or incident recovery must be reconciled back into GitHub.
