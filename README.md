@@ -27,6 +27,8 @@ Application-level identity mapping, strict owner-scoped persistence, onboarding,
 
 - [Defined features](docs/FEATURES.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Intelligence engine architecture](docs/INTELLIGENCE_ARCHITECTURE.md)
+- [Intelligence engine roadmap](docs/INTELLIGENCE_ROADMAP.md)
 - [Architecture decisions](docs/adr/README.md)
 - [Brand and mobile interface direction](docs/BRAND.md)
 - [Production cutover and rollback record](docs/PRODUCTION_CUTOVER.md)
