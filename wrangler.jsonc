@@ -43,7 +43,7 @@
     },
     "production": {
       "name": "matthematical-kalma-production",
-      "workers_dev": false,
+      "workers_dev": true,
       "preview_urls": false,
       "vars": {
         "APP_ENVIRONMENT": "production"

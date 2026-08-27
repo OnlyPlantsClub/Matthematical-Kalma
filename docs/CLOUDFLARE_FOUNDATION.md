@@ -1,6 +1,6 @@
 # Cloudflare foundation and admission runbook
 
-Status: non-production foundation validated; production remains unprovisioned and requires the separate gates in [PRODUCTION_CUTOVER.md](PRODUCTION_CUTOVER.md).
+Status: non-production foundation validated; production infrastructure preparation is recorded in [PRODUCTION_PREPARATION_EVIDENCE.md](PRODUCTION_PREPARATION_EVIDENCE.md), while deployment and domain cutover still require separate approval under [PRODUCTION_CUTOVER.md](PRODUCTION_CUTOVER.md).
 
 ## Service and environment map
 

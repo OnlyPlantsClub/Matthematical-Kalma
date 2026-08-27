@@ -1,10 +1,12 @@
 # Production readiness and domain cutover plan
 
-Status: **Prepared, not approved for execution**
+Status: **Preparation gate complete; deployment and domain cutover remain unapproved**
 
 This is the production change plan for Matthematical Kalma. It records the exact intended sequence and controls; it does not authorise creating resources, credentials, DNS records, routes, custom domains, Access applications, or deployments. GitHub remains the canonical source. Production work must stop at every approval gate below unless the administrator explicitly approves the exact operation.
 
 ## Accepted baseline
+
+Preparation evidence and the immutable DNS baseline are recorded in [PRODUCTION_PREPARATION_EVIDENCE.md](PRODUCTION_PREPARATION_EVIDENCE.md).
 
 - Canonical commit: `cc5cad37507bf97c5794ec65c3b0f8da3361cbde`.
 - Development and staging Workers and D1 databases exist only in the replacement Matthematical Kalma Cloudflare account.

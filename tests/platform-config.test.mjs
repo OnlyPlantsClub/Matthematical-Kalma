@@ -21,10 +21,10 @@ test('uses the approved Worker and D1 names in every environment', () => {
   }
 });
 
-test('configures Static Assets and keeps production deployment disabled by default', () => {
+test('configures Static Assets and permits only the temporary production workers.dev address', () => {
   assert.equal(config.assets.binding, 'ASSETS');
   assert.deepEqual(config.assets.run_worker_first, ['/api/*']);
-  assert.equal(config.env.production.workers_dev, false);
+  assert.equal(config.env.production.workers_dev, true);
   assert.equal(config.env.production.preview_urls, false);
   assert.equal('routes' in config.env.production, false);
 });
