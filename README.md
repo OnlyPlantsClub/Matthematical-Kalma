@@ -17,6 +17,7 @@ Private sports-market intelligence for AFL, tennis, MMA, and boxing. The product
 
 - [Defined features](docs/FEATURES.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Brand and mobile interface direction](docs/BRAND.md)
 
 ## Local development
 
