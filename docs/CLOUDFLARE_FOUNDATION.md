@@ -1,13 +1,13 @@
 # Cloudflare foundation and admission runbook
 
-Status: preparatory configuration committed; the replacement Cloudflare account is verified, protected by administrator 2FA/recovery, and authoritative for the production domain. No Worker, D1, deployment credential or application secret has been provisioned by this change.
+Status: non-production foundation validated; production remains unprovisioned and requires the separate gates in [PRODUCTION_CUTOVER.md](PRODUCTION_CUTOVER.md).
 
 ## Service and environment map
 
 | Environment | Worker | D1 database | D1 binding | Deployment state |
 | --- | --- | --- | --- | --- |
-| Development | `matthematical-kalma-dev` | `matthematical-kalma-dev` | `DB` | Local-ready; remote resource not created here |
-| Staging | `matthematical-kalma-staging` | `matthematical-kalma-staging` | `DB` | Configured; remote resource not created here |
+| Development | `matthematical-kalma-dev` | `matthematical-kalma-dev` | `DB` | Deployed and administrator-validated |
+| Staging | `matthematical-kalma-staging` | `matthematical-kalma-staging` | `DB` | Deployed and administrator-validated at `cc5cad37507bf97c5794ec65c3b0f8da3361cbde` |
 | Production | `matthematical-kalma-production` | `matthematical-kalma-production` | `DB` | Configuration only; provisioning/deployment prohibited until approved |
 
 The Vinext application builds to one Worker plus Workers Static Assets. The Worker is the modular-monolith trust boundary. Assets use binding `ASSETS`; API paths run through the Worker. R2, Cron Triggers, Queues and Workflows remain unbound until a concrete use case is implemented. The Cloudflare Vite plugin selects an environment at build time: the default build is development, while `pnpm build:staging` and `pnpm build:production` flatten the corresponding environment into the generated deployment config. A production build is not a production deployment.
@@ -20,6 +20,10 @@ The Vinext application builds to one Worker plus Workers Static Assets. The Work
 - `Admin@matthematicalkalma.com` remains the initial application identity admitted by Cloudflare Access. Infrastructure administration and application admission are deliberately separate.
 - The superseded Cloudflare account and its zone remain untouched during the propagation/rollback window. They must never be used for new Matthematical Kalma resources or deployment credentials.
 - The replacement account ID is deployment configuration, not source documentation. Store it only as `CLOUDFLARE_ACCOUNT_ID` in protected Matthematical Kalma GitHub environments when non-production deployment credentials are created.
+- Development and staging use separate deployment tokens and protected GitHub environments. Both Workers have `DB` and `ASSETS` bindings and are protected by exact-email Cloudflare Access admission.
+- Staging workflow run [33097678453](https://github.com/OnlyPlantsClub/Matthematical-Kalma/actions/runs/33097678453) deployed commit `cc5cad37507bf97c5794ec65c3b0f8da3361cbde`. It found no pending migrations, validated schema contract version 1, reported the staging `DB` and `ASSETS` bindings, and passed the unauthenticated Access redirect check.
+- Administrator-driven staging OTP and visual acceptance passed: mobile presentation, navigation, empty states and refresh worked; no demo betting/financial records, infrastructure-validation page or application error appeared.
+- Production resources, credentials, Access application, migrations, DNS records, routes and Custom Domains have not been authorised by this checkpoint.
 
 ## Initial Cloudflare Access configuration
 
@@ -80,4 +84,4 @@ Do not grant zone, DNS, Access, R2, email, membership, token-management or accou
 
 The workflow builds and validates first, creates an ignored deployment configuration containing the selected D1 identifier, reviews and applies only pending source-controlled migrations, validates the schema anchor, and deploys the Worker plus Static Assets. It then makes a fresh unauthenticated request and requires an Access redirect. It never creates an Access service token and cannot perform the administrator OTP test.
 
-Development must be deployed and validated before staging is manually approved. Staging should have a required GitHub environment reviewer when the repository plan supports deployment protection rules. Production is deliberately absent from the workflow input and target allowlist.
+Development and staging are deployed and validated. Staging has a required GitHub user reviewer with repository permission; each new staging run requires a separate approval. Production is deliberately absent from the workflow input and target allowlist. Its proposed isolated workflow, temporary-address validation, Access configuration, apex Custom Domain, `www` redirect, Microsoft 365 DNS preservation and rollback sequence are defined—but not authorised—in [the production cutover plan](PRODUCTION_CUTOVER.md).

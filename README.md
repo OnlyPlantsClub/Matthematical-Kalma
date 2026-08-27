@@ -19,6 +19,7 @@ Private sports-market intelligence for AFL, tennis, MMA, and boxing. The product
 - [Architecture](docs/ARCHITECTURE.md)
 - [Architecture decisions](docs/adr/README.md)
 - [Brand and mobile interface direction](docs/BRAND.md)
+- [Production readiness and domain cutover plan](docs/PRODUCTION_CUTOVER.md)
 
 ## Local development
 
