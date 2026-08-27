@@ -1,6 +1,6 @@
 # ADR-0002: Sites identity and strict user isolation
 
-- Status: Accepted
+- Status: Superseded by [ADR-0006](0006-cloudflare-access-and-user-isolation.md)
 - Date: 2026-08-27
 
 ## Context

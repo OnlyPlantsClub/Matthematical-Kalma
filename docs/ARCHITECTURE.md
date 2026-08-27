@@ -11,9 +11,9 @@ This is the canonical MVP architecture and data/audit contract. Focused decision
 ```mermaid
 flowchart LR
   U["Private mobile-first client"] --> W["Vinext modular monolith / Worker"]
-  I["Sites identity and access policy"] --> W
-  W --> D1["Sites-managed D1"]
-  W --> J["Scheduled / queued jobs"]
+  I["Cloudflare Access and verified Access JWT"] --> W
+  W --> D1["Cloudflare D1 binding"]
+  W --> J["Cron Triggers / Queues / Workflows"]
   P["Approved sports and price sources"] --> J
   J --> D1
   W --> O["Logs, metrics and traces"]
@@ -48,7 +48,7 @@ Modules expose typed commands, queries and domain events. A module cannot update
 
 ### Backend
 
-- Derive identity from trusted Sites request headers and map it to an internal user.
+- Validate the Cloudflare Access JWT at the Worker boundary and map its stable issuer/subject to an internal user.
 - Apply owner scoping before repository access.
 - Validate commands, coordinate modules and commit related changes atomically.
 - Create immutable recommendation, ledger, settlement and provenance facts.
@@ -56,7 +56,7 @@ Modules expose typed commands, queries and domain events. A module cannot update
 
 ### Persistence and background work
 
-Sites-managed D1 is the MVP system of record. Foreign keys are enabled; constraints enforce ownership, uniqueness, ranges and simple state rules. R2 remains unbound until large input artifacts or exports require blob storage; if added, D1 retains ownership, checksum, type, size and lifecycle metadata.
+Cloudflare D1, bound directly to the production Worker, is the MVP system of record. Foreign keys are enabled; constraints enforce ownership, uniqueness, ranges and simple state rules. R2 remains unbound until large input artifacts or exports require blob storage; if added, D1 retains ownership, checksum, type, size and lifecycle metadata.
 
 Scheduled/queued jobs handle imports, canonical matching, freshness transitions, model runs, closing-price capture, settlement proposals, evaluation, export and retention. Jobs use leases, checkpoints, idempotency keys, bounded retries and observable run records. They call the same application services and cannot bypass audit or ownership rules.
 
@@ -75,7 +75,7 @@ Ownership classes:
 | Record | Definition / relationships | Owner | Lifecycle |
 | --- | --- | --- | --- |
 | `users` | Internal subject with status, locale, display timezone and deletion state; no auth secret | User | provisioned → active → suspended/deletion_pending → deleted tombstone |
-| `user_identities` | Unique `(issuer, subject)` Sites mapping; email is display/contact metadata, not authority | User | linked → revoked/replaced |
+| `user_identities` | Unique `(issuer, subject)` verified identity mapping; email is display/contact metadata, not authority | User | linked → revoked/replaced |
 | `user_preferences` | Preferred sports, competitions, markets, operators and display choices | User | editable with optimistic concurrency; material change history |
 
 ### Bankroll, ledger and controls
@@ -240,8 +240,8 @@ Recommendations may be invalidated, expired or withdrawn, never edited silently.
 
 ## 10. Isolation, privacy, export and deletion
 
-- Sites authenticates; the application maps trusted issuer/subject to internal `users.id`. Email is not authority.
-- Site policy controls admission. Server authorization scopes every personal query/command by `owner_user_id`; client owner IDs are ignored.
+- Cloudflare Access authenticates the private MVP; the Worker validates the Access JWT and maps its stable issuer/subject to internal `users.id`. Email is display/contact metadata, not authority.
+- Access policy controls admission. Server authorization scopes every personal query/command by `owner_user_id`; client owner IDs are ignored.
 - Repository APIs require `OwnerContext`. System jobs require an explicit service capability and audit reason.
 - Composite ownership checks ensure children share the parent owner. Opaque IDs are not security.
 - Logs/traces omit email, notes, raw payloads, balances/stakes and tokens; use pseudonymous IDs.
@@ -304,9 +304,9 @@ Errors have stable codes and request IDs. Commands include schema version, idemp
 
 Decided now:
 
-- Existing Sites/Vinext/Cloudflare modular monolith.
-- Sites-managed D1 relational authority; R2 only when blob needs are proven.
-- Sites identity mapped internally; mandatory server owner scoping.
+- Existing Vinext modular monolith deployed directly as a Cloudflare Worker with static assets.
+- Cloudflare-managed D1 relational authority; R2 only when blob needs are proven.
+- Cloudflare Access identity mapped internally after JWT verification; mandatory server owner scoping.
 - Append-only observations, forecasts, recommendations, ledger, settlements and corrections.
 - Ledger-derived balances and balanced transactions.
 - UTC instants, IANA zones, explicit freshness/pre-start policy.
@@ -317,14 +317,43 @@ Decided now:
 Safely deferred:
 
 - Providers, licensing and raw-payload retention.
-- Alternative public auth if Sites identity no longer fits private MVP.
+- Product-managed public authentication if the product moves beyond the private MVP.
 - Paper-only versus optional manual real-money (supported by `bankroll.kind`).
 - ATP/WTA scope, AFL second market, operator coverage and model algorithms.
 - Arbitrage MVP versus parallel beta.
 - R2, queue technology, notifications, warehouse and service extraction.
 - Shared workspaces, which require explicit future workspace/roles and never weaken `owner_user_id`.
 
-Provider selection does not block Step 2. The only platform dependency is admitting the second intended user through supported Site access/SIWC; the internal identity and isolation model is unchanged.
+Provider selection does not block Step 2. The platform dependency is admitting both intended users through a Cloudflare Access policy and validating Access JWTs in the Worker; the internal identity and isolation model is unchanged.
+
+## 14. Cloudflare deployment and migration pathway
+
+GitHub is the canonical source and deployment origin. `OnlyPlantsClub/Matthematical-Kalma` deploys through GitHub Actions using Wrangler; Cloudflare dashboard edits are for bootstrap or incident recovery and must be reconciled back to source.
+
+| Concern | Cloudflare service | MVP rule |
+| --- | --- | --- |
+| Web runtime | Worker with Static Assets | One Vinext build and Worker; no Pages split |
+| Relational state | D1 binding | Separate local, preview/staging and production databases and migration histories |
+| Private identity | Cloudflare Access | Verify Access JWT server-side; map issuer/subject, never trust email or client owner IDs |
+| Domain and TLS | Cloudflare authoritative DNS | `matthematicalkalma.com`; preserve Microsoft 365 DNS before nameserver cutover |
+| Scheduled work | Cron Triggers | Small periodic orchestration only; invoke audited application services |
+| Async ingestion | Queues | Add when provider ingestion needs retry/back-pressure; not required for the first vertical slice |
+| Long-running processes | Workflows | Deferred until model/import jobs exceed ordinary Worker execution patterns |
+| Artifacts/exports | R2 | Deferred until blob needs exist; D1 retains ownership and integrity metadata |
+| Secrets | Wrangler secrets/bindings | Never in Git, client bundles, logs or Notion |
+| Delivery | GitHub Actions + Wrangler | Build, typecheck, lint, test, migrate staging, deploy, smoke-test; production migration/deploy is gated |
+
+Migration sequence:
+
+1. Finish Microsoft 365 email setup at GoDaddy and record every MX, SPF/TXT, DKIM/CNAME and autodiscover record.
+2. Add `matthematicalkalma.com` to Cloudflare, import the zone, reconcile the Microsoft records, then change GoDaddy nameservers.
+3. Verify authoritative DNS and bidirectional email before application cutover.
+4. Create Cloudflare development/staging and production D1 databases and commit immutable migrations and Wrangler configuration without IDs or secrets that should remain environment-managed.
+5. Configure Cloudflare Access for the administrator and Matthew; validate JWT issuer, audience, expiry and signature at the Worker boundary.
+6. Implement `/api/v1/me`, identity mapping and owner-scoped repositories; prove the two-user isolation matrix before personal features.
+7. Add GitHub deployment environments and protected production deployment, bind the custom domain, deploy an empty-state build and run smoke checks.
+
+This pathway supersedes Sites hosting and Sites/SIWC identity assumptions. ADR-0001 and ADR-0002 remain as historical records and are superseded by ADR-0005 and ADR-0006.
 
 ## Step 1 acceptance map
 

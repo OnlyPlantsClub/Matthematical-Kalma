@@ -1,6 +1,6 @@
 # ADR-0001: Sites-hosted modular monolith and D1
 
-- Status: Accepted
+- Status: Superseded by [ADR-0005](0005-direct-cloudflare-deployment.md)
 - Date: 2026-08-27
 
 ## Context
