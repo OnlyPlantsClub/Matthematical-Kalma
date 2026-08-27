@@ -5,7 +5,7 @@
 
 ## Context
 
-The Site has platform identity and is owner-only. The product needs durable private records for at least two separate users. Site admission and record authorization are different concerns.
+The Site had platform identity and was owner-only. The product needed durable private records for at least two separate users. Site admission and record authorization are different concerns.
 
 ## Decision
 

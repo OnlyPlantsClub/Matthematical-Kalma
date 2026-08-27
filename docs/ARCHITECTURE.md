@@ -1,6 +1,6 @@
 # Canonical MVP architecture
 
-Status: accepted for MVP foundation (2026-08-27)
+Status: accepted for MVP foundation; Cloudflare platform revision accepted (2026-08-27)
 
 Matthematical Kalma is a private, mobile-first sports-market intelligence and disciplined bankroll-management product. It is independent decision support: it does not place bets, store bookmaker credentials, operate an online in-play workflow, or publish tips. The MVP is one Vinext application and Cloudflare Worker, organised as a modular monolith.
 
@@ -10,13 +10,20 @@ This is the canonical MVP architecture and data/audit contract. Focused decision
 
 ```mermaid
 flowchart LR
-  U["Private mobile-first client"] --> W["Vinext modular monolith / Worker"]
-  I["Cloudflare Access and verified Access JWT"] --> W
-  W --> D1["Cloudflare D1 binding"]
-  W --> J["Cron Triggers / Queues / Workflows"]
-  P["Approved sports and price sources"] --> J
+  GH["GitHub canonical repository"] --> CI["Cloudflare Workers Builds / GitHub CI"]
+  CI --> W["Cloudflare Worker + Static Assets"]
+  DNS["Cloudflare DNS: matthematicalkalma.com"] --> A["Cloudflare Access"]
+  A --> U["Private mobile-first client"]
+  U --> W
+  W --> D1["Cloudflare D1"]
+  W --> R2["Cloudflare R2"]
+  C["Cron Triggers"] --> W
+  W --> Q["Cloudflare Queues"]
+  Q --> J["Consumers / Workflows"]
+  P["Approved sports and price sources"] --> W
   J --> D1
-  W --> O["Logs, metrics and traces"]
+  J --> R2
+  W --> O["Workers Logs, metrics and traces"]
 ```
 
 The server is the trust boundary. Browser storage may hold temporary UI drafts and device presentation preferences, never authoritative identity, bankroll, limits, bets, recommendations, or audit history. Raw provider payloads remain separate from canonical records. Demo fixtures are test/development assets only and never production runtime state.
@@ -45,10 +52,12 @@ Modules expose typed commands, queries and domain events. A module cannot update
 - Request typed server APIs; never authoritatively calculate balance, exposure eligibility, settlement return, or recommendation state.
 - Display source time, freshness, uncertainty, constraints and Pass prominently.
 - Send a client request ID/idempotency key for retriable writes.
+- Keep paper mode the default; preserve cooling-off, loss/exposure caps, Pass, uncertainty, help links and warnings as functional controls rather than footer copy.
+- Remain pre-match and manual-execution only. Product/legal review must confirm the obligations applicable to an independent decision-support tool before any real-money tracking release; the app must not imply it is a licensed wagering provider.
 
 ### Backend
 
-- Validate the Cloudflare Access JWT at the Worker boundary and map its stable issuer/subject to an internal user.
+- Require Cloudflare Access on production and preview routes. Use validated Worker Access context (or validate JWT signature, issuer, audience and expiry) and map the stable Access `(issuer, subject)` to an internal user.
 - Apply owner scoping before repository access.
 - Validate commands, coordinate modules and commit related changes atomically.
 - Create immutable recommendation, ledger, settlement and provenance facts.
@@ -56,9 +65,9 @@ Modules expose typed commands, queries and domain events. A module cannot update
 
 ### Persistence and background work
 
-Cloudflare D1, bound directly to the production Worker, is the MVP system of record. Foreign keys are enabled; constraints enforce ownership, uniqueness, ranges and simple state rules. R2 remains unbound until large input artifacts or exports require blob storage; if added, D1 retains ownership, checksum, type, size and lifecycle metadata.
+Cloudflare-managed D1 is the MVP system of record. Development, staging and production use separate databases and bindings. Foreign keys are enabled; constraints enforce ownership, uniqueness, ranges and simple state rules. R2 stores retained raw source artifacts, large immutable model/dataset bundles, generated exports and future private uploads; D1 retains owner, object key, checksum, type, size, source and lifecycle metadata. Compiled application assets are served by Workers Static Assets, not copied into R2.
 
-Scheduled/queued jobs handle imports, canonical matching, freshness transitions, model runs, closing-price capture, settlement proposals, evaluation, export and retention. Jobs use leases, checkpoints, idempotency keys, bounded retries and observable run records. They call the same application services and cannot bypass audit or ownership rules.
+Cron Triggers initiate short periodic polling and maintenance in UTC. Queues buffer, batch and retry independent ingestion/normalisation messages with at-least-once delivery. Workflows coordinate durable multi-step model, export, settlement-reconciliation and retention processes. Jobs use leases, checkpoints, idempotency keys, bounded retries and observable run records. They call the same application services and cannot bypass audit or ownership rules.
 
 ## 3. Universal record conventions
 
@@ -75,7 +84,7 @@ Ownership classes:
 | Record | Definition / relationships | Owner | Lifecycle |
 | --- | --- | --- | --- |
 | `users` | Internal subject with status, locale, display timezone and deletion state; no auth secret | User | provisioned → active → suspended/deletion_pending → deleted tombstone |
-| `user_identities` | Unique `(issuer, subject)` verified identity mapping; email is display/contact metadata, not authority | User | linked → revoked/replaced |
+| `user_identities` | Unique `(issuer, subject)` Cloudflare Access mapping; email is allowlist/contact metadata, not ownership authority | User | linked → revoked/replaced |
 | `user_preferences` | Preferred sports, competitions, markets, operators and display choices | User | editable with optimistic concurrency; material change history |
 
 ### Bankroll, ledger and controls
@@ -240,8 +249,8 @@ Recommendations may be invalidated, expired or withdrawn, never edited silently.
 
 ## 10. Isolation, privacy, export and deletion
 
-- Cloudflare Access authenticates the private MVP; the Worker validates the Access JWT and maps its stable issuer/subject to internal `users.id`. Email is display/contact metadata, not authority.
-- Access policy controls admission. Server authorization scopes every personal query/command by `owner_user_id`; client owner IDs are ignored.
+- Cloudflare Access authenticates through an exact-email allow policy; the Worker accepts only validated Access context and maps trusted `(iss, sub)` to internal `users.id`. Email is not the ownership key.
+- Access controls admission to production and previews. Application authorization separately scopes every personal query/command by `owner_user_id`; client owner IDs are ignored.
 - Repository APIs require `OwnerContext`. System jobs require an explicit service capability and audit reason.
 - Composite ownership checks ensure children share the parent owner. Opaque IDs are not security.
 - Logs/traces omit email, notes, raw payloads, balances/stakes and tokens; use pseudonymous IDs.
@@ -250,6 +259,19 @@ Recommendations may be invalidated, expired or withdrawn, never edited silently.
 - Shared market/model facts survive a user deletion. Personalised recommendation/exposure links are erased or irreversibly anonymised.
 
 Step 2 must prove two-user isolation across object IDs, lists, search, pagination, aggregates, jobs, export and deletion.
+
+### Selected authentication approach
+
+**Selected for the private MVP:** Cloudflare Access protecting the Worker, with One-Time PIN and an allow policy containing exactly the administrator address and Matthew’s confirmed address. Use Worker-native Access context where available; otherwise validate the Access application JWT signature, issuer, audience, expiry and subject. Store a unique `(issuer, subject)` identity mapping and provision each permitted person into a different internal user row. Do not use a domain-wide allow rule, Cloudflare-account membership, a shared email, or email alone as record ownership.
+
+Alternatives considered:
+
+- **External managed auth (Clerk, Auth0 or WorkOS):** suitable when public self-service accounts, passkeys, recovery and richer lifecycle management are required. Deferred because the private two-user MVP does not need an app-owned login surface and would add another security/data processor.
+- **Custom magic-link/passkey auth in the Worker:** rejected for MVP because token issuance, credential recovery, abuse protection and session security would become application responsibilities.
+- **Cloudflare account membership:** rejected as product identity because it couples application users to infrastructure administrators and cannot represent Matthew as an ordinary isolated product user cleanly.
+- **Access with a whole-domain allow rule:** rejected; only exact identities are admitted.
+
+Identity implementation is deliberately not started until the Access team domain/application, audience, exact two-email allowlist, OTP delivery, session duration and local/staging test identities are confirmed.
 
 ## 11. Initial APIs and services
 
@@ -278,7 +300,8 @@ Errors have stable codes and request IDs. Commands include schema version, idemp
 
 - Ordered immutable SQL migrations live in source; never edit an applied migration.
 - Prefer additive expand/contract. Destructive changes need backup/export verification, data migration, forward-fix plan and approval.
-- Each environment has separate D1 and migration history. Production verifies foreign keys and integrity.
+- Each environment has a separately named Cloudflare D1 database, binding and migration history. Migrations are versioned SQL in GitHub, applied by database name in a gated deployment job, and production verifies foreign keys and integrity.
+- Before a production schema change, record a D1 Time Travel bookmark; use periodic D1 export to private R2 when retention beyond the platform recovery window is required.
 - Backfills are resumable/idempotent with progress and reconciliation.
 - Seed only deterministic reference/test data in local/test. Production starts with genuine empty user state and has no demo import path.
 
@@ -300,13 +323,43 @@ Errors have stable codes and request IDs. Commands include schema version, idemp
 - Alerts: missing/ambiguous mappings, start changes, stale prices, probability-sum violations, result conflict and missed closing capture.
 - Domain audit evidence and short-lived diagnostic logs have separate retention.
 
-## 13. Now versus deferred
+## 13. Cloudflare migration and production topology
+
+| Existing Sites capability | Cloudflare target | Migration implication |
+| --- | --- | --- |
+| Sites hosting | **Cloudflare Worker with Workers Static Assets** | Preserve the Vinext build only if its output is directly deployable; otherwise adopt the supported Cloudflare Vite/OpenNext adapter in a dedicated platform migration before feature work. Do not choose Pages for the new production target. |
+| Sites-managed D1 (not yet bound) | **Cloudflare D1** | No production data transfer exists. Create separate dev/staging/prod databases and committed migrations; bind `DB` per environment. |
+| Sites identity | **Cloudflare Access** | No identity rows exist to migrate. Confirm two exact users, configure OTP allowlist, then create internal `users` and `user_identities(issuer, subject)`. |
+| Sites static assets | **Workers Static Assets** | Build-generated JS/CSS/images deploy atomically with the Worker. |
+| Future uploads/artifacts | **Private R2** | Create only when Step 2/ingestion needs it. Use Worker bindings; keep metadata/checksums/ownership in D1 and deny public buckets for personal data. |
+| Sites background capability | **Cron + Queues + Workflows** | Cron starts schedules; Queues buffer independent jobs; Workflows own durable dependent steps. Retain domain idempotency because Queue delivery is at least once. |
+| Sites runtime values | **Wrangler bindings, vars and secrets** | Commit non-secret binding declarations/config; set environment-specific secrets through Cloudflare encrypted secrets. Never commit tokens or provider keys. |
+| Sites live URL | **`https://matthematicalkalma.com`** | Transfer authoritative DNS to Cloudflare, verify DNSSEC/records, attach Worker Custom Domain, enforce HTTPS/HSTS after validation, and protect it with Access before personal data exists. Keep the old Site read-only only for a bounded rollback window. |
+| Sites source publication | **GitHub → Workers Builds or GitHub Actions → Wrangler** | GitHub remains canonical. Require checks on pull requests; deploy preview/staging from non-production refs and production from protected `main` with a scoped Cloudflare API token and gated D1 migration job. |
+
+Cloudflare account administration uses `admin@matthematicalkalma.com`, MFA and least-privilege API tokens. Infrastructure administration is never an application-user role. Repository, Wrangler configuration, migrations and deployment workflow stay in [OnlyPlantsClub/Matthematical-Kalma](https://github.com/OnlyPlantsClub/Matthematical-Kalma); Notion records decisions and delivery status only.
+
+Production service map:
+
+- **DNS/TLS/WAF:** Cloudflare authoritative DNS for `matthematicalkalma.com`, managed TLS, baseline WAF/rate limiting and Access.
+- **Web/API:** one Worker modular monolith serving SSR/API plus Workers Static Assets.
+- **Relational state:** D1 bindings per environment.
+- **Objects:** private R2 buckets per environment for source artifacts, exports and later uploads.
+- **Async:** Cron Triggers → producer/application service → Queues; Workflows for durable dependent steps.
+- **Configuration:** `wrangler.jsonc` and generated binding types in GitHub; encrypted secrets per environment.
+- **Delivery:** protected GitHub `main`, required checks, preview/staging, migration gate, then Worker deploy/custom-domain promotion.
+- **Operations:** Workers structured logs/traces, queue/workflow run records, D1 integrity/reconciliation metrics and alerting.
+
+## 14. Now versus deferred
 
 Decided now:
 
-- Existing Vinext modular monolith deployed directly as a Cloudflare Worker with static assets.
-- Cloudflare-managed D1 relational authority; R2 only when blob needs are proven.
-- Cloudflare Access identity mapped internally after JWT verification; mandatory server owner scoping.
+- Cloudflare Worker with Workers Static Assets as the production modular monolith; Pages is not the target.
+- Cloudflare-managed D1 relational authority and private R2 for retained artifacts/exports/uploads.
+- Cloudflare Access with an exact two-user allowlist; validated Access issuer/subject mapped internally; mandatory server owner scoping.
+- `matthematicalkalma.com` on Cloudflare DNS as the production origin.
+- GitHub as canonical source with GitHub-based CI/CD to Cloudflare.
+- Cron Triggers, Queues and Workflows selected by job shape.
 - Append-only observations, forecasts, recommendations, ledger, settlements and corrections.
 - Ledger-derived balances and balanced transactions.
 - UTC instants, IANA zones, explicit freshness/pre-start policy.
@@ -317,16 +370,16 @@ Decided now:
 Safely deferred:
 
 - Providers, licensing and raw-payload retention.
-- Product-managed public authentication if the product moves beyond the private MVP.
+- External public/self-service auth after the private MVP, if Access no longer fits.
 - Paper-only versus optional manual real-money (supported by `bankroll.kind`).
 - ATP/WTA scope, AFL second market, operator coverage and model algorithms.
 - Arbitrage MVP versus parallel beta.
-- R2, queue technology, notifications, warehouse and service extraction.
+- Exact R2 retention, Workflow boundaries, notifications, warehouse and service extraction.
 - Shared workspaces, which require explicit future workspace/roles and never weaken `owner_user_id`.
 
 Provider selection does not block Step 2. The platform dependency is admitting both intended users through a Cloudflare Access policy and validating Access JWTs in the Worker; the internal identity and isolation model is unchanged.
 
-## 14. Cloudflare deployment and migration pathway
+### Cloudflare deployment and migration pathway
 
 GitHub is the canonical source and deployment origin. `OnlyPlantsClub/Matthematical-Kalma` deploys through GitHub Actions using Wrangler; Cloudflare dashboard edits are for bootstrap or incident recovery and must be reconciled back to source.
 
@@ -355,6 +408,18 @@ Migration sequence:
 
 This pathway supersedes Sites hosting and Sites/SIWC identity assumptions. ADR-0001 and ADR-0002 remain as historical records and are superseded by ADR-0005 and ADR-0006.
 
+### Revised Step 2 prerequisites
+
+1. Cloudflare account ownership and admin MFA/recovery are verified; least-privilege deploy credentials are available.
+2. `matthematicalkalma.com` is active on Cloudflare DNS with required mail records preserved during transfer.
+3. Worker deployment path is proven from the existing GitHub repository in a non-production environment; Pages/Sites are not dual authorities.
+4. Dev, staging and production names/bindings for Worker, D1 and optional R2 are approved.
+5. Cloudflare Access team domain, Worker application, audience, exact administrator and Matthew email addresses, OTP delivery and session duration are confirmed.
+6. Two different Access subjects map to two different internal users; unauthenticated, wrong-audience and non-allowlisted requests fail closed.
+7. D1 migration/runbook covers forward-only migrations, Time Travel bookmark, integrity/foreign-key checks and rollback/forward-fix.
+8. CI requires typecheck, lint, tests, build, migration review and secret scanning before production deployment.
+9. Australian responsible-gambling copy/control requirements remain product acceptance criteria and are not delegated to the platform.
+
 ## Step 1 acceptance map
 
 - Every core record has definition, owner and lifecycle.
@@ -364,3 +429,18 @@ This pathway supersedes Sites hosting and Sites/SIWC identity assumptions. ADR-0
 - Recommendations, settlement, void and correction history cannot be silently rewritten.
 - Demo fixtures are test/development-only.
 - Step 2 can implement identity mapping and owner-scoped repositories without revisiting the model.
+
+## Official platform and regulatory references
+
+- [Cloudflare Workers best practices and Static Assets](https://developers.cloudflare.com/workers/best-practices/workers-best-practices/)
+- [Full-stack applications on Workers](https://developers.cloudflare.com/workers/static-assets/routing/full-stack-application/)
+- [Cloudflare Access for Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/)
+- [Cloudflare Access application token](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/)
+- [Cloudflare Access One-Time PIN](https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/one-time-pin/)
+- [Cloudflare D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/)
+- [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/)
+- [Workers Git integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/)
+- [Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/)
+- [Workers secrets](https://developers.cloudflare.com/workers/configuration/secrets/)
+- [ACMA — Interactive Gambling Act](https://www.acma.gov.au/interactivegambling)
+- [ACMA — BetStop](https://www.acma.gov.au/betstop-national-self-exclusion-registertm)

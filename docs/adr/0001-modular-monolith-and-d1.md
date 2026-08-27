@@ -11,6 +11,8 @@ The existing Vinext/React Site needs durable relational personal records, strict
 
 Run one modular monolith as the existing Site/Worker. Separate capability code and table ownership; communicate through typed application services and recorded domain events. Use Sites-managed D1 as the system of record. Leave R2 unbound until large immutable artifacts or exports require blob storage.
 
+This historical decision is superseded. The modular-monolith and D1 principles remain; ADR-0005 replaces hosting, resource ownership and deployment with direct Cloudflare services.
+
 ## Consequences
 
 - One deployment and transaction boundary keep MVP operations and audit simple.
