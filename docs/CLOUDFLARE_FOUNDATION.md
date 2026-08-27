@@ -61,3 +61,23 @@ pnpm security:secrets
 Provision and deploy development/staging only. Put the replacement account ID and a dedicated least-privilege non-production API token in protected Matthematical Kalma GitHub environments; never commit either value, and never reuse Sowstead or superseded-account credentials. Always use the explicit D1 database name for remote migration commands, take a D1 Time Travel bookmark before a material remote migration, review the pending list, apply forward-only migrations, and run `PRAGMA foreign_key_check`, a schema-contract read and domain reconciliation afterwards. D1 rejects `PRAGMA integrity_check` through its SQL authorizer; use an approved export-and-SQLite procedure when a full file-level integrity check is required.
 
 Production requires a separate approval gate: protected GitHub environment, least-privilege Cloudflare token, recovery verification, production D1/Worker creation, migration approval, custom-domain/Access validation and smoke/reconciliation checks. Dashboard changes made during bootstrap or incident recovery must be reconciled back into GitHub.
+
+## Non-production GitHub deployment gate
+
+The manual `Deploy non-production` workflow accepts exactly `development` or `staging` and runs only from `main` in `OnlyPlantsClub/Matthematical-Kalma`. A source-controlled guard maps those inputs to only `matthematical-kalma-dev` and `matthematical-kalma-staging`. It rejects missing or malformed D1 identifiers, unexpected Worker/database names, missing `DB` or `ASSETS` bindings, and any route configuration before deployment credentials are used.
+
+Each GitHub environment must have its own Cloudflare API token. Cloudflare scopes these permissions to the replacement account, not to an individual Worker or D1 database. Grant only:
+
+- Account — Workers Scripts — Edit
+- Account — D1 — Edit
+
+Do not grant zone, DNS, Access, R2, email, membership, token-management or account-administration permissions. Configure the following directly in the matching protected GitHub environment; never commit them or put their values in Notion:
+
+| GitHub environment | Secrets | Non-secret variables |
+| --- | --- | --- |
+| `matthematical-kalma-dev` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | `CLOUDFLARE_D1_DATABASE_ID`, `CLOUDFLARE_WORKER_URL` |
+| `matthematical-kalma-staging` | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | `CLOUDFLARE_D1_DATABASE_ID`, `CLOUDFLARE_WORKER_URL` |
+
+The workflow builds and validates first, creates an ignored deployment configuration containing the selected D1 identifier, reviews and applies only pending source-controlled migrations, validates the schema anchor, and deploys the Worker plus Static Assets. It then makes a fresh unauthenticated request and requires an Access redirect. It never creates an Access service token and cannot perform the administrator OTP test.
+
+Development must be deployed and validated before staging is manually approved. Staging should have a required GitHub environment reviewer when the repository plan supports deployment protection rules. Production is deliberately absent from the workflow input and target allowlist.

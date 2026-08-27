@@ -1,0 +1,126 @@
+name: Deploy non-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Exact non-production target
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-nonproduction-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: github.repository == 'OnlyPlantsClub/Matthematical-Kalma' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      github_environment: ${{ steps.target.outputs.github_environment }}
+      worker_name: ${{ steps.target.outputs.worker_name }}
+      database_name: ${{ steps.target.outputs.database_name }}
+      app_environment: ${{ steps.target.outputs.app_environment }}
+      build_script: ${{ steps.target.outputs.build_script }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: target
+        name: Resolve exact allowlisted target
+        env:
+          DEPLOY_TARGET: ${{ inputs.target }}
+        run: >-
+          node scripts/prepare-cloudflare-deploy.mjs
+          --target "$DEPLOY_TARGET"
+          --validate-only true
+          --github-output "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: gate
+    environment: ${{ needs.gate.outputs.github_environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      DEPLOY_TARGET: ${{ inputs.target }}
+      EXPECTED_WORKER_NAME: ${{ needs.gate.outputs.worker_name }}
+      EXPECTED_DATABASE_NAME: ${{ needs.gate.outputs.database_name }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_D1_DATABASE_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
+      CLOUDFLARE_WORKER_URL: ${{ vars.CLOUDFLARE_WORKER_URL }}
+      DEPLOY_CONFIG: .wrangler/deploy/wrangler.nonproduction.json
+      WRANGLER_LOG_PATH: .wrangler/logs/wrangler.log
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.16.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+      - name: Fail closed when protected configuration is absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_D1_DATABASE_ID"
+          test -n "$CLOUDFLARE_WORKER_URL"
+      - run: pnpm install --frozen-lockfile
+      - name: Validate source before deployment
+        run: |
+          pnpm typecheck
+          pnpm worker:types:check
+          pnpm lint
+          pnpm test
+          pnpm migrations:validate
+          pnpm security:secrets
+      - name: Build selected target
+        env:
+          BUILD_SCRIPT: ${{ needs.gate.outputs.build_script }}
+        run: pnpm run "$BUILD_SCRIPT"
+      - name: Materialize ephemeral allowlisted deployment configuration
+        run: >-
+          node scripts/prepare-cloudflare-deploy.mjs
+          --target "$DEPLOY_TARGET"
+          --database-id "$CLOUDFLARE_D1_DATABASE_ID"
+          --input dist/server/wrangler.json
+          --output "$DEPLOY_CONFIG"
+      - name: Validate deploy without mutation
+        run: pnpm exec wrangler deploy --config "$DEPLOY_CONFIG" --dry-run --strict --x-autoconfig false
+      - name: Review and apply only pending source-controlled migrations
+        run: |
+          pnpm exec wrangler d1 migrations list DB --remote --config "$DEPLOY_CONFIG"
+          pnpm exec wrangler d1 migrations apply DB --remote --config "$DEPLOY_CONFIG"
+      - name: Validate migrated database
+        run: |
+          pnpm exec wrangler d1 execute DB --remote --config "$DEPLOY_CONFIG" --command "PRAGMA foreign_key_check"
+          pnpm exec wrangler d1 execute DB --remote --config "$DEPLOY_CONFIG" --command "SELECT singleton_id, schema_contract_version FROM platform_schema_metadata"
+      - name: Deploy selected Worker and Static Assets
+        run: >-
+          pnpm exec wrangler deploy
+          --config "$DEPLOY_CONFIG"
+          --strict
+          --x-autoconfig false
+          --message "GitHub Actions ${GITHUB_SHA}"
+      - name: Confirm unauthenticated Access redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$CLOUDFLARE_WORKER_URL" in
+            "https://${EXPECTED_WORKER_NAME}."*.workers.dev/) ;;
+            *) echo 'Worker URL is missing or outside the approved target.' >&2; exit 1 ;;
+          esac
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$CLOUDFLARE_WORKER_URL")"
+          case "$status" in
+            301|302|303|307|308) ;;
+            *) echo "Expected an Access redirect, received HTTP ${status}." >&2; exit 1 ;;
+          esac

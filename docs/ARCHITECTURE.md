@@ -401,8 +401,8 @@ Migration sequence:
 
 1. **Complete:** activate Cloudflare authoritative DNS for `matthematicalkalma.com`; Microsoft has verified MX, SPF and autodiscover and reports email ready.
 2. **Complete:** Cloudflare administrator alias verification, authenticator 2FA and recovery-code capture are confirmed; inbound/outbound mail and alias delivery tests passed.
-3. Commit the Worker Static Assets configuration, approved environment/D1 binding names, ordered migrations and non-deploying CI checks.
-4. After the security gate, create only development/staging resources, configure Access for `Admin@matthematicalkalma.com` with One-Time PIN and one-month sessions, and prove a non-production deployment.
+3. **Complete:** commit the Worker Static Assets configuration, approved environment/D1 binding names, ordered migrations and non-deploying CI checks.
+4. **Foundation complete; deployment proof pending:** development/staging resources and Access are configured. Use the manual, fail-closed GitHub workflow to deploy development first, validate administrator OTP access, and require separate approval before staging.
 5. Implement `/api/v1/me`, identity mapping and owner-scoped repositories; use two synthetic subjects to prove the isolation matrix before personal features.
 6. Admit Matthew later by adding his exact address to Access, signing in once to obtain a distinct subject and provisioning a distinct internal user. Run the isolation regression suite before granting beta access.
 7. Only after explicit production readiness approval, create production resources/credentials/secrets, bind the custom domain and enable the gated production migration/deployment workflow.
