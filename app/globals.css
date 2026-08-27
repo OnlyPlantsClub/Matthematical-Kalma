@@ -54,6 +54,8 @@ button { color: inherit; }
 .bank-card input, .risk input { width: 100%; margin: 16px 0 10px; accent-color: var(--yellow); }
 .bank-meta { display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.12); }
 .bank-meta b { margin-left: 4px; color: var(--yellow); }
+.bank-empty p { margin: 13px 0; color: #b9d8ee; font-size: 11px; line-height: 1.45; }
+.bank-empty button { width: 100%; min-height: 42px; display: flex; justify-content: space-between; align-items: center; padding: 0 12px; border: 0; border-radius: 8px; background: var(--yellow); color: var(--ink); font-size: 10px; font-weight: 900; }
 
 .mode-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 14px 14px 8px; padding: 4px; border-radius: 999px; background: #d9e7f2; }
 .mode-switch button { min-height: 43px; border: 0; border-radius: 999px; background: transparent; color: #0872be; font-size: 13px; font-weight: 900; }
@@ -69,6 +71,15 @@ button { color: inherit; }
 .section-head { display: flex; justify-content: space-between; align-items: end; margin: 0 5px 12px; }
 .section-head h2, .ticket h2 { margin: 0; color: var(--ink); font-size: 25px; line-height: 1; letter-spacing: -.035em; font-weight: 1000; }
 .section-head button { border: 0; background: transparent; color: var(--blue); font-size: 12px; font-weight: 900; }
+.private-beta { padding: 6px 8px; border-radius: 999px; background: #d7e8f3; color: var(--blue); font-size: 8px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.market-empty { min-height: 320px; display: grid; place-items: center; align-content: center; padding: 34px 24px; border: 2px dashed #c5dbe9; border-radius: 18px; background: rgba(255,255,255,.72); text-align: center; }
+.empty-icon { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--yellow); color: var(--ink); font-size: 27px; font-weight: 1000; }
+.market-empty h3 { margin: 16px 0 8px; font-size: 22px; letter-spacing: -.03em; }
+.market-empty>p { max-width: 510px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.empty-status { width: 100%; max-width: 460px; display: grid; gap: 1px; margin-top: 22px; overflow: hidden; border-radius: 10px; background: var(--line); text-align: left; }
+.empty-status span { display: flex; justify-content: space-between; padding: 11px 12px; background: white; font-size: 9px; }
+.empty-status b { color: var(--ink); }
+.empty-status em { color: var(--muted); font-style: normal; }
 .game-list { display: grid; gap: 10px; }
 .game-row { width: 100%; min-width: 0; min-height: 126px; padding: 14px; display: grid; grid-template-columns: 52px minmax(0,1fr) 61px 38px; grid-template-areas: 'league match edge arrow' 'league match market arrow'; align-items: center; gap: 6px 10px; border: 0; border-radius: 16px; background: white; text-align: left; box-shadow: 0 5px 18px rgba(0,52,89,.07); }
 .game-row.selected { box-shadow: inset 0 0 0 3px var(--yellow), 0 6px 20px rgba(0,52,89,.12); }
@@ -94,6 +105,12 @@ button { color: inherit; }
 .method-note strong { color: var(--ink); }
 
 .ticket { padding: 18px; border-radius: 18px; background: var(--blue-deep); color: white; box-shadow: 0 8px 24px rgba(0,38,65,.16); }
+.empty-ticket { min-height: 390px; display: grid; align-content: center; justify-items: start; }
+.empty-ticket .empty-icon { margin-bottom: 18px; }
+.empty-ticket>p:not(.eyebrow):not(.disclaimer) { margin: 12px 0 18px; color: #a8cee7; font-size: 10px; line-height: 1.5; }
+.readiness-list { width: 100%; display: grid; gap: 8px; margin-bottom: 18px; }
+.readiness-list span { display: flex; align-items: center; gap: 9px; color: #d3e8f6; font-size: 9px; }
+.readiness-list b { width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 22px; border-radius: 50%; background: #0b567f; color: var(--yellow); }
 .ticket .eyebrow { color: var(--yellow); }
 .ticket h2 { color: white; font-size: 22px; }
 .ticket-head { display: flex; justify-content: space-between; gap: 12px; }

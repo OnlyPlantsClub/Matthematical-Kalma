@@ -1,11 +1,9 @@
-interface BankrollControlProps { bankroll: number; onChange: (bankroll: number) => void; }
-
-export function BankrollControl({ bankroll, onChange }: BankrollControlProps) {
+export function BankrollControl() {
   return (
-    <div className="bank-card">
-      <div><span>Working bankroll</span><strong>${bankroll.toLocaleString()}</strong></div>
-      <input aria-label="Working bankroll" type="range" min="500" max="10000" step="100" value={bankroll} onChange={(event) => onChange(Number(event.target.value))} />
-      <div className="bank-meta"><span>Position cap <b>2.5%</b></span><span>Mode <b>Paper</b></span></div>
+    <div className="bank-card bank-empty">
+      <div><span>Paper bankroll</span><strong>Not set</strong></div>
+      <p>Create a private account and complete onboarding before any personal balance, limits or insights appear.</p>
+      <button type="button" disabled>Account setup coming next <span>→</span></button>
     </div>
   );
 }
