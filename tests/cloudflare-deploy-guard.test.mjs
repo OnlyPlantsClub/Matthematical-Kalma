@@ -34,6 +34,7 @@ test('injects only a valid environment-scoped D1 identifier', () => {
   });
   assert.equal(result.d1_databases[0].database_id, databaseId);
   assert.equal(result.d1_databases[0].binding, 'DB');
+  assert.equal(result.d1_databases[0].migrations_dir, '../../migrations');
   assert.equal(result.main, '../../dist/server/index.js');
   assert.equal(result.assets.directory, '../../dist/client');
 });

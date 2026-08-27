@@ -71,7 +71,15 @@ export function createDeploymentConfig(sourceConfig, targetName, databaseId, pat
       ...sourceConfig.assets,
       directory: relativeToOutput(sourceConfig.assets.directory),
     },
-    d1_databases: [{ ...database, database_id: databaseId }],
+    d1_databases: [
+      {
+        ...database,
+        database_id: databaseId,
+        migrations_dir: relativeToOutput(
+          path.relative(inputDirectory, path.resolve(database.migrations_dir)),
+        ),
+      },
+    ],
   };
 }
 
