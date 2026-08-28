@@ -4,6 +4,16 @@ Private sports-market intelligence for AFL, tennis, MMA, and boxing. The product
 
 > The current application renders honest empty states and has no production runtime fixtures. Nothing displayed by the application is betting advice or a validated production forecast.
 
+## Production
+
+- Live: [https://matthematicalkalma.com](https://matthematicalkalma.com)
+- Platform: Cloudflare Worker with Workers Static Assets and environment-isolated D1
+- Admission: Cloudflare Access, One-Time PIN, exact administrator allowlist and one-month sessions
+- Deployment: protected, manual GitHub Actions from canonical `main`
+- Legacy Sites deployment: **Superseded — rollback only**
+
+Application-level identity mapping, strict owner-scoped persistence, onboarding, paper bankroll and intelligence features remain future implementation work; platform admission is not a substitute for those controls.
+
 ## Current slice
 
 - Interactive market board for the scoped MVP sports
@@ -19,7 +29,8 @@ Private sports-market intelligence for AFL, tennis, MMA, and boxing. The product
 - [Architecture](docs/ARCHITECTURE.md)
 - [Architecture decisions](docs/adr/README.md)
 - [Brand and mobile interface direction](docs/BRAND.md)
-- [Production readiness and domain cutover plan](docs/PRODUCTION_CUTOVER.md)
+- [Production cutover and rollback record](docs/PRODUCTION_CUTOVER.md)
+- [Cloudflare foundation and admission runbook](docs/CLOUDFLARE_FOUNDATION.md)
 
 ## Local development
 

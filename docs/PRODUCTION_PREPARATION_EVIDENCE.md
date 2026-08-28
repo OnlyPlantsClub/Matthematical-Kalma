@@ -1,6 +1,6 @@
 # Production preparation evidence
 
-Status: **Prepared; deployment and domain cutover not authorised**
+Status: **Historical preparation evidence — superseded by the completed [production cutover record](PRODUCTION_CUTOVER.md) on 28 August 2026**
 
 Captured: 2026-08-28 (Australia/Perth)
 

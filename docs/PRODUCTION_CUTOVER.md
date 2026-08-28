@@ -1,6 +1,54 @@
-# Production readiness and domain cutover plan
+# Production cutover and rollback record
 
-Status: **Preparation gate complete; deployment and domain cutover remain unapproved**
+Status: **Complete — Cloudflare production accepted on 28 August 2026 (Australia/Perth)**
+
+## Completion record
+
+Matthematical Kalma completed its controlled Sites-to-Cloudflare production migration on 28 August 2026. GitHub remains the canonical technical record and source repository.
+
+| Evidence | Accepted result |
+| --- | --- |
+| Production URL | [https://matthematicalkalma.com](https://matthematicalkalma.com) |
+| Production Worker | `matthematical-kalma-production` |
+| Deployed application commit | [`e128273c27569094878af0a668db9cce284089c8`](https://github.com/OnlyPlantsClub/Matthematical-Kalma/commit/e128273c27569094878af0a668db9cce284089c8) |
+| Deployment workflow | [GitHub Actions run 33101680003](https://github.com/OnlyPlantsClub/Matthematical-Kalma/actions/runs/33101680003) |
+| Bindings | Production `DB` and `ASSETS` validated |
+| Access | Apex, `www`, and temporary Worker destination protected; One-Time PIN only; exact `Admin@matthematicalkalma.com` allowlist; one-month session |
+| Runtime data | No demo betting, bankroll, recommendation, settlement, fixture, user, or financial records |
+| Legacy Sites deployment | **Superseded — rollback only** |
+
+The apex is attached as a Worker Custom Domain. `www.matthematicalkalma.com` uses a proxied placeholder `A` record (`192.0.2.1`, TTL Auto) and one active Cloudflare Single Redirect matching `http*://www.matthematicalkalma.com/*`, targeting `https://matthematicalkalma.com/${2}` with status `301` and query-string preservation enabled. HTTP/HTTPS root, nested path, query preservation, TLS, loop prevention, unauthenticated Access denial, authenticated application load, assets, refresh and empty states passed.
+
+Microsoft 365 MX, SPF, DMARC, domain-verification and autodiscover categories were preserved. No DKIM selector existed in the recorded pre-cutover nine-record inventory, so no DKIM record was changed. Post-cutover outbound mail from `Admin@matthematicalkalma.com` was received externally and the external reply was received successfully.
+
+Production D1 contains only migration `0001_platform_foundation.sql`, schema-contract metadata version 1 and platform migration/system tables. Foreign-key validation passed during preparation/deployment; no application or demo rows were inserted. A D1 Time Travel bookmark was captured on 28 August 2026 at approximately 02:17 Australia/Perth, immediately before cutover. Its value is intentionally excluded from source and Notion; the bookmark is usable only within Cloudflare D1's applicable Time Travel retention window, so it is not a durable backup.
+
+## Environment and delivery structure
+
+| Environment | Worker and D1 | Deployment control |
+| --- | --- | --- |
+| Development | `matthematical-kalma-dev` | Separate protected GitHub environment and least-privilege deployment token |
+| Staging | `matthematical-kalma-staging` | Separate protected GitHub environment, token and required deployment review |
+| Production | `matthematical-kalma-production` | Manual dispatch from protected `main`, exact full-SHA guard, valid required reviewer and production-only resource allowlist |
+
+All deployment tokens are scoped to the Matthematical Kalma Cloudflare account with only Workers Scripts Edit and D1 Edit. Cloudflare enforces those permissions account-wide; source guards fail closed unless the exact environment Worker/D1 names and `DB`/`ASSETS` bindings match. Deployment workflows do not manage DNS, Access, custom domains, API tokens or Microsoft 365 records.
+
+## Current rollback
+
+- **Application:** use the last known-good Worker version without changing D1.
+- **Apex:** detach the Worker Custom Domain and restore the recorded pre-cutover apex A records only after separate explicit approval.
+- **`www`:** disable `Redirect www to apex`, replace the proxied placeholder A record with the original proxied `www` CNAME to the apex, and remove only the `www` Access destination if restoring the exact prior state.
+- **D1:** do not restore for presentation or routing failures. A destructive Time Travel restore requires separate explicit approval and a fresh in-window bookmark.
+- **Sites:** retain the old deployment temporarily as rollback evidence. Review its retirement on 4 September 2026; deletion requires separate explicit approval.
+
+## Remaining operational follow-ups
+
+1. Observe production stability and review whether to retire the Sites rollback deployment on 4 September 2026.
+2. Decide whether the protected temporary `workers.dev` destination remains available for diagnostics.
+3. Rotate deployment credentials on the approved schedule and retain required-reviewer/branch protections.
+4. Begin Step 2 separately: implement validated Access identity mapping, internal users and synthetic two-subject owner-isolation tests. Cloudflare admission is complete; application authentication/authorization is not.
+
+## Historical controlling runbook
 
 This is the production change plan for Matthematical Kalma. It records the exact intended sequence and controls; it does not authorise creating resources, credentials, DNS records, routes, custom domains, Access applications, or deployments. GitHub remains the canonical source. Production work must stop at every approval gate below unless the administrator explicitly approves the exact operation.
 

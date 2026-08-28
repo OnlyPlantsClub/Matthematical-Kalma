@@ -1,6 +1,6 @@
 # ADR-0005: Direct Cloudflare deployment
 
-- Status: Accepted
+- Status: Accepted and implemented
 - Date: 2026-08-27
 - Supersedes: ADR-0001 platform-hosting details
 
@@ -14,16 +14,16 @@ Keep the Vinext modular monolith, but deploy it directly as one Cloudflare Worke
 
 Cloudflare authoritative DNS is now active for `matthematicalkalma.com` in the verified replacement account. Microsoft MX, SPF, DMARC, domain verification and autodiscover resolve correctly, and inbound/outbound mail tests passed after migration. The Cloudflare administrator alias has authenticator 2FA and retained recovery codes. The approved Worker/D1 names are `matthematical-kalma-dev`, `matthematical-kalma-staging` and `matthematical-kalma-production`, with `DB` as the D1 binding. Production secrets and account identifiers remain in Cloudflare/GitHub environment configuration, not source or documentation.
 
-Source may contain non-secret, non-provisioning configuration for all environments. The administrator security gate has passed, so scoped development/staging environment configuration may now be created. Production resource creation, credentials, secrets, migrations and deployment remain separately gated.
+Source contains non-secret configuration for development, staging and production. Separate protected GitHub environments and least-privilege credentials deploy only their allowlisted Worker/D1 resources. Production run 33101680003 deployed commit `e128273c27569094878af0a668db9cce284089c8`; the protected apex and path/query-preserving `www` redirect are live. The Sites deployment is superseded and retained temporarily for rollback only.
 
 ## Consequences
 
 - The MVP retains one application, deployment and primary transaction boundary.
 - GitHub history describes every reproducible application and infrastructure change.
 - D1 migrations stay ordered, immutable and environment-specific.
-- DNS, Microsoft email readiness and administrator account security are complete; protected non-production credentials and deployment proof remain prerequisites.
+- DNS, Microsoft email readiness, administrator account security, protected environment credentials and deployment proofs are complete across development, staging and production.
 - Pages is not an additional frontend tier; the Vinext output deploys as a Worker with static assets.
-- GitHub CI validates the application and local migrations but has no deployment job until the security gate is complete.
+- GitHub CI validates the application and migrations; protected manual deployment workflows enforce exact environment/resource allowlists and approval gates.
 
 ## Official references
 

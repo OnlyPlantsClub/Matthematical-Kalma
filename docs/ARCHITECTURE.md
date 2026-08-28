@@ -334,7 +334,7 @@ Errors have stable codes and request IDs. Commands include schema version, idemp
 | Future uploads/artifacts | **Private R2** | Create only when Step 2/ingestion needs it. Use Worker bindings; keep metadata/checksums/ownership in D1 and deny public buckets for personal data. |
 | Sites background capability | **Cron + Queues + Workflows** | Cron starts schedules; Queues buffer independent jobs; Workflows own durable dependent steps. Retain domain idempotency because Queue delivery is at least once. |
 | Sites runtime values | **Wrangler bindings, vars and secrets** | Commit non-secret binding declarations/config; set environment-specific secrets through Cloudflare encrypted secrets. Never commit tokens or provider keys. |
-| Sites live URL | **`https://matthematicalkalma.com`** | Cloudflare authoritative DNS is active and Microsoft has verified MX, SPF and autodiscover. Later attach the Worker Custom Domain, enforce HTTPS/HSTS after validation, and protect it with Access before personal data exists. Keep the old Site read-only only for a bounded rollback window. |
+| Sites live URL | **`https://matthematicalkalma.com`** | Migration complete: the apex is a protected Worker Custom Domain and `www` permanently preserves path/query while redirecting to the apex. Microsoft 365 DNS and mail flow were revalidated. Keep the old Site only for the bounded rollback review window. |
 | Sites source publication | **GitHub → Workers Builds or GitHub Actions → Wrangler** | GitHub remains canonical. Require checks on pull requests; deploy preview/staging from non-production refs and production from protected `main` with a scoped Cloudflare API token and gated D1 migration job. |
 
 Cloudflare account administration uses the verified `cloudflare@matthematicalkalma.com` alias with authenticator MFA, retained recovery codes and least-privilege API tokens. `Admin@matthematicalkalma.com` remains the initial Cloudflare Access application identity; infrastructure administration is never an application-user role. The superseded Cloudflare account stays untouched during the rollback window and is not a valid target for new resources or credentials. Account identifiers and deployment credentials belong only in protected Matthematical Kalma GitHub environment configuration, never source or Notion. Repository, Wrangler configuration, migrations and deployment workflow stay in [OnlyPlantsClub/Matthematical-Kalma](https://github.com/OnlyPlantsClub/Matthematical-Kalma); Notion records decisions and delivery status only.
@@ -357,7 +357,7 @@ Decided now:
 - Cloudflare Worker with Workers Static Assets as the production modular monolith; Pages is not the target.
 - Cloudflare-managed D1 relational authority and private R2 for retained artifacts/exports/uploads.
 - Cloudflare Access with a single initial administrator allow rule, one-month session duration, validated Access issuer/subject mapping and mandatory server owner scoping; later beta users are admitted individually.
-- `matthematicalkalma.com` is active on Cloudflare authoritative DNS as the production origin; Microsoft MX, SPF and autodiscover are verified.
+- `matthematicalkalma.com` is the live protected Worker Custom Domain; `www` permanently redirects to the apex with path/query preservation. Microsoft MX, SPF, DMARC, verification and autodiscover are verified and post-cutover mail tests passed.
 - Worker/D1 environment names are `matthematical-kalma-dev`, `matthematical-kalma-staging` and `matthematical-kalma-production`.
 - GitHub as canonical source with GitHub-based CI/CD to Cloudflare.
 - Cron Triggers, Queues and Workflows selected by job shape.
@@ -378,7 +378,7 @@ Safely deferred:
 - Exact R2 retention, Workflow boundaries, notifications, warehouse and service extraction.
 - Shared workspaces, which require explicit future workspace/roles and never weaken `owner_user_id`.
 
-Provider selection and Matthew’s beta admission do not block Step 2. The platform dependency is completing administrator security/recovery, verifying administrator OTP delivery, proving the non-production Worker path and confirming the Access application/audience; the internal identity and isolation model is unchanged.
+Provider selection and Matthew’s beta admission do not block Step 2. The Cloudflare foundation, protected deployment pipeline, Access admission and production-domain cutover are complete. Step 2 remains not started and must implement internal identity mapping, server owner scoping and synthetic two-subject isolation without treating platform admission as application authorization.
 
 ### Cloudflare deployment and migration pathway
 
@@ -402,10 +402,10 @@ Migration sequence:
 1. **Complete:** activate Cloudflare authoritative DNS for `matthematicalkalma.com`; Microsoft has verified MX, SPF and autodiscover and reports email ready.
 2. **Complete:** Cloudflare administrator alias verification, authenticator 2FA and recovery-code capture are confirmed; inbound/outbound mail and alias delivery tests passed.
 3. **Complete:** commit the Worker Static Assets configuration, approved environment/D1 binding names, ordered migrations and non-deploying CI checks.
-4. **Foundation complete; deployment proof pending:** development/staging resources and Access are configured. Use the manual, fail-closed GitHub workflow to deploy development first, validate administrator OTP access, and require separate approval before staging.
+4. **Complete:** development, staging and production resources, Access and protected GitHub environments are configured; manual fail-closed deployments and administrator OTP acceptance passed.
 5. Implement `/api/v1/me`, identity mapping and owner-scoped repositories; use two synthetic subjects to prove the isolation matrix before personal features.
 6. Admit Matthew later by adding his exact address to Access, signing in once to obtain a distinct subject and provisioning a distinct internal user. Run the isolation regression suite before granting beta access.
-7. Only after explicit production readiness approval, create production resources/credentials/secrets, bind the custom domain and enable the gated production migration/deployment workflow.
+7. **Complete:** production resources, protected credentials, migration/deployment workflow, apex Custom Domain and `www` redirect passed their explicit approval gates. The Sites deployment is superseded and retained temporarily for rollback review.
 
 This pathway supersedes Sites hosting and Sites/SIWC identity assumptions. ADR-0001 and ADR-0002 remain as historical records and are superseded by ADR-0005 and ADR-0006.
 
@@ -413,11 +413,11 @@ This pathway supersedes Sites hosting and Sites/SIWC identity assumptions. ADR-0
 
 1. **Complete:** Cloudflare administrator email verification, authenticator 2FA and recovery-code capture are confirmed.
 2. **Complete:** `matthematicalkalma.com` is active on the replacement Cloudflare authoritative zone; Microsoft MX, SPF, DMARC, domain verification and autodiscover resolve correctly, and inbound/outbound mail tests passed.
-3. **Prepared, proof pending:** the existing GitHub repository contains a non-production Worker/Static Assets configuration; create protected Matthematical Kalma GitHub environments with the replacement account target and scoped credentials, then prove a development or staging deployment.
+3. **Complete:** protected development, staging and production GitHub environments deploy the Worker/Static Assets configuration with separate scoped credentials and exact resource allowlists.
 4. **Complete:** Worker/D1 names are approved: `matthematical-kalma-dev`, `matthematical-kalma-staging`, `matthematical-kalma-production`, all with binding `DB`.
-5. **Pending:** confirm the Access team domain, application and audience; admit only `Admin@matthematicalkalma.com`; verify One-Time PIN; set global/application/policy sessions to one month.
+5. **Complete (platform admission):** Access protects development, staging, the production Worker destination, apex and `www`; One-Time PIN, exact administrator admission and one-month sessions were verified. Step 2 still implements and tests application identity/authorization.
 6. **Prepared:** ordered D1 migration/runbook covers forward-only migrations, Time Travel bookmark, foreign-key/schema-read checks, export integrity verification when required and forward fixes.
-7. **Prepared:** CI requires typecheck, lint, tests, build, migration review and secret scanning and performs no deployment.
+7. **Complete:** CI and protected manual deployment workflows require typecheck, lint, tests, build, migration review, secret scanning, exact environment/resource guards and reviewer gates.
 8. **Step 2 acceptance, not an infrastructure prerequisite:** synthetic distinct Access subjects map to distinct internal users and all negative/isolation cases fail closed. Matthew is admitted later and repeats this regression suite.
 9. Australian responsible-gambling copy/control requirements remain product acceptance criteria and are not delegated to the platform.
 

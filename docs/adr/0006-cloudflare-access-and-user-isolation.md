@@ -20,7 +20,7 @@ Every personal repository operation requires the server-derived owner context an
 - Authentication and data authorization remain separate layers.
 - A later public/product-managed identity provider can add mappings without changing domain ownership.
 - Access configuration, JWT validation and synthetic two-subject isolation are Step 2 acceptance tests.
-- Step 2 is **Not started — awaiting remaining infrastructure readiness**: administrator email verification and 2FA/recovery are complete; Access application/audience confirmation, administrator One-Time PIN delivery and a protected non-production Worker deployment remain outstanding.
+- Cloudflare platform admission is complete: Access protects development, staging, the production Worker destination, apex and `www`; One-Time PIN, exact administrator admission and one-month sessions were validated. Step 2 remains **Not started** because internal identity mapping, server-derived ownership and synthetic two-subject isolation have not been implemented.
 - Adding Matthew is a later beta-admission procedure, not a prerequisite.
 
 ## Alternatives considered
