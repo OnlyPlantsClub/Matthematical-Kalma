@@ -48,6 +48,7 @@ Nothing in this register authorises data acquisition, real-money use or provider
 - **Completeness:** market calculations require at least two caller-declared exhaustive, mutually exclusive outcomes with unique IDs and active, current, present prices. This slice validates the declaration; canonical event/market equivalence remains future work.
 - **Expected value:** version 1 is the binary unit-stake formula `EV = pd - 1`, excluding pushes, voids, commission, fees and execution effects. General payoff states remain unresolved.
 - **Probability-vector rounding:** exact proportional shares use largest-remainder apportionment at `1e9`, with original outcome order as the deterministic exact-tie breaker, so the output sums to exactly one.
+- **Arithmetic replay boundary:** the current slice replays supplied canonical values but is not a complete factual-lineage record. A future observation/derived-fact contract must carry observed time, calculation as-of time, freshness-policy version and complete immutable parent references.
 
 ## Sport boundaries
 

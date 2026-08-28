@@ -1,5 +1,11 @@
 export const DECIMAL_ODDS_SCALE = 1_000_000n;
 export const PROBABILITY_SCALE = 1_000_000_000n;
+export const MAX_DECIMAL_ODDS_INPUT_LENGTH = 12;
+export const MAX_DECIMAL_ODDS_MICROS = 10_000_000_000n;
+export const MAX_PROBABILITY_INPUT_LENGTH = 11;
+export const MAX_MARKET_OUTCOMES = 16;
+export const MAX_OUTCOME_ID_LENGTH = 128;
+export const MAX_OBSERVATION_REF_LENGTH = 256;
 
 export const PROPORTIONAL_DEVIG_METHOD = {
   id: 'proportional',
@@ -13,13 +19,21 @@ export type CalculationErrorCode =
   | 'suspended_price'
   | 'stale_price'
   | 'incomplete_market'
-  | 'invalid_probability';
+  | 'invalid_probability'
+  | 'invalid_input'
+  | 'invalid_market'
+  | 'invalid_outcome_id'
+  | 'invalid_observation_ref'
+  | 'input_limit_exceeded'
+  | 'odds_out_of_range'
+  | 'market_limit_exceeded';
 
 export interface CalculationError {
   code: CalculationErrorCode;
   message: string;
   outcomeId?: string;
   inputIndex?: number;
+  path?: string;
 }
 
 export type CalculationResult<T> =
@@ -107,6 +121,12 @@ interface ValidatedPrice {
 
 const DECIMAL_ODDS_PATTERN = /^(?:0|[1-9]\d*)(?:\.(\d{1,6}))?$/;
 const PROBABILITY_PATTERN = /^(?:0(?:\.(\d{1,9}))?|1(?:\.0{1,9})?)$/;
+const OUTCOME_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+const OBSERVATION_REF_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/@-]*$/;
+
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return typeof input === 'object' && input !== null && !Array.isArray(input);
+}
 
 function success<T>(value: T): CalculationResult<T> {
   return { ok: true, value };
@@ -171,6 +191,12 @@ function parseDecimalOdds(input: unknown): CalculationResult<bigint> {
   if (typeof input !== 'string') {
     return failure({ code: 'invalid_odds', message: 'Decimal odds must be a canonical decimal string.' });
   }
+  if (input.length > MAX_DECIMAL_ODDS_INPUT_LENGTH) {
+    return failure({
+      code: 'input_limit_exceeded',
+      message: `Decimal odds must not exceed ${MAX_DECIMAL_ODDS_INPUT_LENGTH} characters.`,
+    });
+  }
   const match = DECIMAL_ODDS_PATTERN.exec(input);
   if (!match) {
     return failure({
@@ -184,11 +210,29 @@ function parseDecimalOdds(input: unknown): CalculationResult<bigint> {
   if (oddsMicros <= DECIMAL_ODDS_SCALE) {
     return failure({ code: 'invalid_odds', message: 'Decimal odds must be greater than 1.000000.' });
   }
+  if (oddsMicros > MAX_DECIMAL_ODDS_MICROS) {
+    return failure({
+      code: 'odds_out_of_range',
+      message: 'Decimal odds must not exceed 10000.000000.',
+    });
+  }
   return success(oddsMicros);
 }
 
 function parseProbability(input: unknown): CalculationResult<bigint> {
-  if (typeof input !== 'string' || !PROBABILITY_PATTERN.test(input)) {
+  if (typeof input !== 'string') {
+    return failure({
+      code: 'invalid_probability',
+      message: 'Independent probability must be a canonical decimal string from 0 to 1 with at most 9 fractional digits.',
+    });
+  }
+  if (input.length > MAX_PROBABILITY_INPUT_LENGTH) {
+    return failure({
+      code: 'input_limit_exceeded',
+      message: `Independent probability must not exceed ${MAX_PROBABILITY_INPUT_LENGTH} characters.`,
+    });
+  }
+  if (!PROBABILITY_PATTERN.test(input)) {
     return failure({
       code: 'invalid_probability',
       message: 'Independent probability must be a canonical decimal string from 0 to 1 with at most 9 fractional digits.',
@@ -198,40 +242,110 @@ function parseProbability(input: unknown): CalculationResult<bigint> {
   return success(BigInt(integerPart) * PROBABILITY_SCALE + BigInt(fractionalPart.padEnd(9, '0') || '0'));
 }
 
-function validateMarket(input: MarketPriceInput): CalculationResult<ValidatedPrice[]> {
+function validateMarket(input: unknown): CalculationResult<ValidatedPrice[]> {
+  if (!isRecord(input)) {
+    return failure({ code: 'invalid_input', message: 'Market input must be a non-null object.', path: '$' });
+  }
+  if (input.completeness !== 'complete' && input.completeness !== 'incomplete') {
+    return failure({
+      code: 'invalid_market',
+      message: 'Market completeness must be complete or incomplete.',
+      path: '$.completeness',
+    });
+  }
+  if (!Array.isArray(input.prices)) {
+    return failure({ code: 'invalid_market', message: 'Market prices must be an array.', path: '$.prices' });
+  }
+  if (input.prices.length > MAX_MARKET_OUTCOMES) {
+    return failure({
+      code: 'market_limit_exceeded',
+      message: `A market must not exceed ${MAX_MARKET_OUTCOMES} outcomes.`,
+      path: '$.prices',
+    });
+  }
   if (input.completeness !== 'complete' || input.prices.length < 2) {
     return failure({
       code: 'incomplete_market',
       message: 'A market calculation requires at least two exhaustive, mutually exclusive outcomes.',
+      path: '$.prices',
     });
   }
   const seenOutcomeIds = new Set<string>();
   const validated: ValidatedPrice[] = [];
-  for (const [inputIndex, price] of input.prices.entries()) {
-    const context = { outcomeId: price.outcomeId, inputIndex };
-    if (!price.outcomeId || seenOutcomeIds.has(price.outcomeId)) {
+  for (let inputIndex = 0; inputIndex < input.prices.length; inputIndex += 1) {
+    const path = `$.prices[${inputIndex}]`;
+    if (!(inputIndex in input.prices)) {
+      return failure({ code: 'invalid_market', message: 'Market prices must be a dense array.', inputIndex, path });
+    }
+    const price = input.prices[inputIndex];
+    if (!isRecord(price)) {
+      return failure({ code: 'invalid_market', message: 'Every price must be a non-null object.', inputIndex, path });
+    }
+    const outcomeId = price.outcomeId;
+    const context = {
+      ...(typeof outcomeId === 'string' ? { outcomeId } : {}),
+      inputIndex,
+      path,
+    };
+    if (
+      typeof outcomeId !== 'string'
+      || outcomeId.length === 0
+      || outcomeId.length > MAX_OUTCOME_ID_LENGTH
+      || !OUTCOME_ID_PATTERN.test(outcomeId)
+      || seenOutcomeIds.has(outcomeId)
+    ) {
       return failure({
-        code: 'incomplete_market',
-        message: 'Every market outcome must have a unique non-empty outcomeId.',
+        code: 'invalid_outcome_id',
+        message: `Every outcomeId must be unique, 1-${MAX_OUTCOME_ID_LENGTH} characters, and use only letters, digits, '.', '_', ':' or '-'.`,
         ...context,
+        path: `${path}.outcomeId`,
       });
     }
-    seenOutcomeIds.add(price.outcomeId);
+    seenOutcomeIds.add(outcomeId);
+    if (price.availability !== 'active' && price.availability !== 'suspended') {
+      return failure({
+        code: 'invalid_market',
+        message: 'Price availability must be active or suspended.',
+        ...context,
+        path: `${path}.availability`,
+      });
+    }
+    if (price.freshness !== 'current' && price.freshness !== 'stale') {
+      return failure({
+        code: 'invalid_market',
+        message: 'Price freshness must be current or stale.',
+        ...context,
+        path: `${path}.freshness`,
+      });
+    }
+    if (price.observationRef !== undefined && (
+      typeof price.observationRef !== 'string'
+      || price.observationRef.length === 0
+      || price.observationRef.length > MAX_OBSERVATION_REF_LENGTH
+      || !OBSERVATION_REF_PATTERN.test(price.observationRef)
+    )) {
+      return failure({
+        code: 'invalid_observation_ref',
+        message: `observationRef must be 1-${MAX_OBSERVATION_REF_LENGTH} characters and use only opaque reference characters.`,
+        ...context,
+        path: `${path}.observationRef`,
+      });
+    }
     if (price.decimalOdds === null || price.decimalOdds === undefined || price.decimalOdds === '') {
-      return failure({ code: 'missing_price', message: 'Every outcome requires a price.', ...context });
+      return failure({ code: 'missing_price', message: 'Every outcome requires a price.', ...context, path: `${path}.decimalOdds` });
     }
     if (price.availability === 'suspended') {
-      return failure({ code: 'suspended_price', message: 'Suspended prices cannot form a market calculation.', ...context });
+      return failure({ code: 'suspended_price', message: 'Suspended prices cannot form a market calculation.', ...context, path: `${path}.availability` });
     }
     if (price.freshness === 'stale') {
-      return failure({ code: 'stale_price', message: 'Stale prices cannot form a market calculation.', ...context });
+      return failure({ code: 'stale_price', message: 'Stale prices cannot form a market calculation.', ...context, path: `${path}.freshness` });
     }
     const parsed = parseDecimalOdds(price.decimalOdds);
-    if (!parsed.ok) return failure({ ...parsed.error, ...context });
+    if (!parsed.ok) return failure({ ...parsed.error, ...context, path: `${path}.decimalOdds` });
     validated.push({
-      outcomeId: price.outcomeId,
+      outcomeId,
       oddsMicros: parsed.value,
-      ...(price.observationRef === undefined ? {} : { observationRef: price.observationRef }),
+      ...(typeof price.observationRef === 'string' ? { observationRef: price.observationRef } : {}),
     });
   }
   return success(validated);
@@ -293,13 +407,13 @@ export function decimalOddsToImpliedProbability(decimalOdds: unknown): Calculati
   });
 }
 
-export function calculateMarketOverround(input: MarketPriceInput): CalculationResult<OverroundCalculation> {
+export function calculateMarketOverround(input: unknown): CalculationResult<OverroundCalculation> {
   const validated = validateMarket(input);
   if (!validated.ok) return validated;
   return success(buildOverround(validated.value));
 }
 
-export function removeMarginProportionally(input: MarketPriceInput): CalculationResult<ProportionalMarketBaseline> {
+export function removeMarginProportionally(input: unknown): CalculationResult<ProportionalMarketBaseline> {
   const validated = validateMarket(input);
   if (!validated.ok) return validated;
 
@@ -357,11 +471,24 @@ export function removeMarginProportionally(input: MarketPriceInput): Calculation
   });
 }
 
-export function calculateExpectedValue(input: ExpectedValueInput): CalculationResult<ExpectedValueCalculation> {
+export function calculateExpectedValue(input: unknown): CalculationResult<ExpectedValueCalculation> {
+  if (!isRecord(input)) {
+    return failure({ code: 'invalid_input', message: 'Expected-value input must be a non-null object.', path: '$' });
+  }
+  if (!Object.hasOwn(input, 'decimalOdds')) {
+    return failure({ code: 'missing_price', message: 'Expected-value input requires decimalOdds.', path: '$.decimalOdds' });
+  }
+  if (!Object.hasOwn(input, 'independentProbability')) {
+    return failure({
+      code: 'invalid_probability',
+      message: 'Expected-value input requires independentProbability.',
+      path: '$.independentProbability',
+    });
+  }
   const parsedOdds = parseDecimalOdds(input.decimalOdds);
-  if (!parsedOdds.ok) return parsedOdds;
+  if (!parsedOdds.ok) return failure({ ...parsedOdds.error, path: '$.decimalOdds' });
   const parsedProbability = parseProbability(input.independentProbability);
-  if (!parsedProbability.ok) return parsedProbability;
+  if (!parsedProbability.ok) return failure({ ...parsedProbability.error, path: '$.independentProbability' });
   const grossReturnNanos = roundHalfEven(parsedOdds.value * parsedProbability.value, DECIMAL_ODDS_SCALE);
   const expectedValueNanos = grossReturnNanos - PROBABILITY_SCALE;
   return success({

@@ -14,7 +14,7 @@ Exit: ADRs accepted, formula conventions and reason-code catalogue frozen for th
 
 ## Phase 1 — Deterministic odds mathematics
 
-**Status:** implemented and validated on `agent/deterministic-odds-core`; not merged, deployed or released. This status does not imply that forecasting or recommendations exist.
+**Status:** implemented; independent corrections in progress on `agent/deterministic-odds-core`; not merged, deployed or released. This status does not imply that forecasting or recommendations exist.
 
 - Implement strict decimal-odds parsing, implied probability, proportional de-vig baseline, EV/payoff-state calculation, fair-price display, line equivalence and pure arbitrage allocation.
 - Use scaled decimals/integer money and property/golden tests. Do not issue recommendations.
