@@ -26,7 +26,7 @@ A market declares `completeness: 'complete' | 'incomplete'`. Each outcome suppli
 
 Calculations fail with a typed code for unavailable states, malformed structures, invalid identifiers/references, numeric range limits and market-size limits. Missing or unavailable data is never converted into probability zero, odds `1`, or an empty successful result. Errors include a stable input `path` and, where applicable, an outcome index and ID.
 
-Freshness classification belongs to a preceding validated observation/snapshot layer. This arithmetic slice only accepts or rejects that layer's explicit `current`/`stale` classification; it does not calculate age from timestamps. Observed time, calculation as-of time, freshness-policy version and complete immutable parent references remain required future contract decisions before this calculation is used as a persisted derived fact.
+Freshness classification belongs to the preceding validated observation/snapshot layer documented in [MARKET_OBSERVATIONS.md](MARKET_OBSERVATIONS.md). This arithmetic slice only accepts or rejects that layer's explicit `current`/`stale` classification; it does not calculate age from timestamps. The observation layer now supplies observed, receipt, event-start and calculation/as-of times, freshness-policy version and immutable observation references. Canonical content hashing and persistence still remain future requirements before a calculation is stored as a complete derived fact.
 
 ## Formulas
 

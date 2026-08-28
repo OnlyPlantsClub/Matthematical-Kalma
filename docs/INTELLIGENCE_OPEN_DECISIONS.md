@@ -26,6 +26,14 @@ Nothing in this register authorises data acquisition, real-money use or provider
 | O-15 | Official sport features/results | Authoritative sources, licences, correction cadence, entity identifiers and publication times for AFL, MMA and boxing. |
 | O-16 | Provider outage/fallback | Whether consensus may degrade to fewer sources, minimum coverage, source weighting and suspension thresholds. |
 
+### Resolved for the normalized observation slice
+
+- **Time syntax:** observation, receipt, event-start and calculation/as-of instants use ADR-0004 canonical UTC ISO-8601 milliseconds. Offset-bearing, offset-free and non-millisecond inputs are rejected at this boundary.
+- **Baseline freshness contract:** `baseline-pre-match` version `1` uses a 60,000 ms maximum age solely as a deterministic MVP/test baseline. The exact boundary is inclusive (`age <= 60,000 ms` is current). Sport/market/operator policy selection and production thresholds remain O-13/O-29 governance work.
+- **Ordering:** observation must not be after `asOf`; receipt must be between observation and `asOf`; `asOf` must be strictly before event start. Invalid ordering is preserved as an error, not relabelled stale.
+- **Observation limits:** deterministic-odds outcome, outcome-ID, observation-reference and decimal-price limits are reused. Version-1 source/canonical IDs are bounded to 128 characters, provider references to 256, source sequence/version references to 128 and fixed canonical timestamps to 24.
+- **Provenance boundary:** normalized results retain source/provider reference, immutable per-outcome reference and optional source sequence without credentials. Provider selection, raw retention/licensing, canonical hashing and persistence remain unresolved.
+
 ## Mathematical and modelling policy
 
 | ID | Decision needed | Proposed starting point / experiment |
