@@ -14,14 +14,14 @@ Exit: ADRs accepted, formula conventions and reason-code catalogue frozen for th
 
 ## Phase 1 — Deterministic odds mathematics
 
-**Status:** implemented; independent corrections in progress on `agent/deterministic-odds-core`; not merged, deployed or released. This status does not imply that forecasting or recommendations exist.
+**Status:** implemented; independent validation passed on `agent/deterministic-odds-core`; approved for integration but not deployed or released. This status does not imply that forecasting or recommendations exist.
 
 - Implement strict decimal-odds parsing, implied probability, proportional de-vig baseline, EV/payoff-state calculation, fair-price display, line equivalence and pure arbitrage allocation.
 - Use scaled decimals/integer money and property/golden tests. Do not issue recommendations.
 
 Delivered in this first executable slice: strict odds validation, implied probability, market overround, proportional de-vig with exact-sum probability apportionment, simple binary unit-stake EV, explicit incomplete/suspended/stale/missing failures, audit detail and invariant tests. Fair-price conversion, line equivalence, generalized payoff states and pure arbitrage allocation remain later Phase 1 increments.
 
-Exit: boundary, invariant, precision and replay tests pass; independent review signs off formula/rounding conventions.
+Exit: passed — boundary, invariant, precision and replay tests pass; independent review signed off the formula and rounding conventions.
 
 ## Phase 2 — Manual/sample ingestion
 
