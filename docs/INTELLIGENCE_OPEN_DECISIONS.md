@@ -46,6 +46,17 @@ Nothing in this register authorises data acquisition, real-money use or provider
 
 Still open: provider trust in the supplied digest and timestamps; how providers/adapters produce the canonical payload bytes/hash; whether and how long raw bytes may be retained; locator durability; the production retrieval/verification workflow; persistence constraints; provider/result sources; sport-specific event revision tolerances; quarantine operations; and production-scale graph/payload limits.
 
+### Resolved for the TASK-21 implementation candidate
+
+- **Domain boundary:** `source-result-observation-v1`, `canonical-result-observation-v1` and `settlement-fact-v1` are separate immutable records. Settlement facts carry no financial or recommendation fields.
+- **MVP eligibility:** `accepted-terminal-result/1` permits only official, corrected, abandoned and cancelled observations. Provisional and unresolved states fail closed pending review.
+- **Result vocabulary:** winner, loser, draw, void, push, no contest and unresolved remain distinct participant facts; optional placement supports multi-participant events.
+- **Corrections/conflicts:** one explicit append-only successor, exact event scope and changed facts are required. Missing parents, forks, cycles, cross-event corrections and unchanged corrections fail. Reversions are labelled. Provider disagreement has no automatic winner.
+- **Result time:** strict UTC milliseconds and injected evaluation/derivation time are mandatory; equal adjacent instants are accepted, while ambiguous lineage is not inferred from time or sequence.
+- **Candidate limits:** `result-contract-limits-v1` caps participants, placements, score components, evidence, existing observations and correction depth at 16, inside the existing untrusted inspection envelope.
+
+Still open for TASK-21: independent review and integration; authoritative result-provider governance; sport/ruleset-specific void, push, dead-heat and abandonment policy; whether provisional results can ever settle; correction approval authority; comparable provider-sequence semantics; persistence constraints and operational quarantine workflow.
+
 | ID | Decision needed | Proposed starting point / experiment |
 | --- | --- | --- |
 | O-20 | De-vig methods | Proportional baseline; compare power/odds-ratio and source-specific treatments out of sample. |

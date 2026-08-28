@@ -25,7 +25,7 @@ Exit: passed — boundary, invariant, precision and replay tests pass; independe
 
 ## Phase 2 — Manual/sample ingestion
 
-**Status:** the provider-neutral canonical identity subset passed independent review and was approved for integration into canonical `main`. It centralizes entity-context rules across canonical identities, aliases and candidates; separately enforces singleton event-role semantics; and preserves the bounded alias, correction-graph, ordering and payload-verification contracts. Phase 2 and TASK-04 remain in progress: no persistence, provider/result ingestion or deployment exists, and append-only storage plus independent-import integration remain required before Phase 2 exit.
+**Status:** the provider-neutral canonical identity subset passed independent review and was approved for integration into canonical `main`. The TASK-21 result-observation candidate now adds separated source/canonical result contracts, append-only result correction classification and immutable settlement-fact derivation; it remains incomplete pending independent review and integration. Phase 2, TASK-04 and TASK-21 remain in progress: no persistence, live provider ingestion or deployment exists, and append-only storage plus independent-import integration remain required before Phase 2 exit.
 
 - Implement the adapter contract for approved manual/file fixtures only.
 - Normalise source, event, participant, market, outcome, quote and result candidates; quarantine ambiguity.
