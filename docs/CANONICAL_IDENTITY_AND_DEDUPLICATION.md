@@ -6,7 +6,9 @@ The implementation is split across [`canonical-identity.ts`](../src/domain/intel
 
 ## Canonical identity model
 
-`canonical-identity-v2` represents sport, competition, participant and event identities. IDs use a versioned runtime tag—`sport:`, `competition:`, `participant:`, `event:` or `role:`—followed by an opaque identifier of no implied human meaning. The tag prevents cross-entity substitution; the suffix is never generated from a name. Competition requires a typed sport parent; participant requires a typed sport and may declare a typed competition; event requires typed sport and competition parents, a canonical UTC-millisecond start, and 2–16 unique participant/role-ID records. Every identity and role carries a version and evidence.
+`canonical-identity-v2` represents sport, competition, participant and event identities. IDs use a versioned runtime tag—`sport:`, `competition:`, `participant:`, `event:` or `role:`—followed by an opaque identifier of no implied human meaning. One shared context validator governs canonical identities, aliases and candidates: sport forbids parent/time context; competition requires sport only; participant requires sport, optionally competition, and forbids event time; event requires sport, competition and canonical UTC-millisecond start. Alias-set scope and candidate matching include this complete validated context, including optional-field presence.
+
+Events contain 2–16 unique participant and opaque role IDs. Role-ID uniqueness is independent of semantic cardinality: `home`, `away` and `draw` may each occur at most once even under distinct `role:` IDs, while multiple `competitor` roles are permitted.
 
 Display names are deliberately absent from identity authority. They may appear in separately retained evidence, but editing a display name cannot alter a canonical ID. Event time is identity context in this bounded contract; a changed source time therefore conflicts or requires a newly reviewed version/mapping rather than silently moving an event.
 
@@ -51,7 +53,7 @@ When bytes are absent, every replay mode returns `not_verifiable`; in particular
 
 ## Runtime safety, limits and immutability
 
-All JSON-compatible contracts first pass `untrusted-json-inspection-v2`, inheriting its protection against getters, proxies, exotic prototypes, cycles, repeated references, sparse arrays, unknown/credential fields, depth and aggregate budgets. Domain IDs are at most 128 characters; references 256; versions 128; reasons 512; evidence, candidate, event-participant, existing-fact and correction-chain counts are each bounded at 16. Canonical instants are the existing 24-character UTC millisecond form.
+All JSON-compatible contracts first pass `untrusted-json-inspection-v2`, inheriting its protection against getters, proxies, exotic prototypes, cycles, repeated references, sparse arrays, unknown/credential fields, depth and aggregate budgets. Domain IDs are at most 128 characters; references 256; versions 128; reasons 512; evidence, aliases, candidates, event participants, existing facts and correction-chain depth are each bounded at 16. Canonical instants are the existing 24-character UTC millisecond form.
 
 Successes, decisions, errors, metadata, arrays, parents and policies are recursively frozen. Functions use only caller-supplied time and facts; there is no system clock, randomness or network access. These are application-level in-memory guarantees, not database immutability claims.
 

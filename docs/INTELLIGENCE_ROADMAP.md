@@ -25,7 +25,7 @@ Exit: passed — boundary, invariant, precision and replay tests pass; independe
 
 ## Phase 2 — Manual/sample ingestion
 
-**Status:** in progress and awaiting independent re-review. The corrected provider-neutral subset on `agent/canonical-event-identity` uses entity-tagged opaque IDs, a bounded alias-set state machine and supersession graph, complete immutable observation scope/graph validation, validated ordering, and allocation-bounded supplied-byte SHA-256 verification. No persistence, provider/result ingestion or deployment exists; append-only storage and independent-import integration remain required before Phase 2 exit.
+**Status:** independent-review corrections remain in progress and await final re-review. The provider-neutral subset on `agent/canonical-event-identity` now centralizes entity-context rules across canonical identities, aliases and candidates; separately enforces singleton event-role semantics; and preserves the bounded alias, correction-graph, ordering and payload-verification contracts. No persistence, provider/result ingestion or deployment exists; append-only storage and independent-import integration remain required before Phase 2 exit.
 
 - Implement the adapter contract for approved manual/file fixtures only.
 - Normalise source, event, participant, market, outcome, quote and result candidates; quarantine ambiguity.
