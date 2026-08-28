@@ -14,6 +14,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern worker-configuration.d.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test",
+    "test:intelligence:d1": "node scripts/validate-intelligence-d1.mjs",
     "migrations:validate": "node scripts/validate-migrations.mjs",
     "deploy:guard:test": "node --test tests/cloudflare-deploy-guard.test.mjs",
     "migrations:apply:local": "wrangler d1 migrations apply DB --local",

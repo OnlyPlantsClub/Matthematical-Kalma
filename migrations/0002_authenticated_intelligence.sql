@@ -1,73 +1,36 @@
-PRAGMA foreign_keys = ON;
-
-UPDATE platform_schema_metadata SET schema_contract_version = 2 WHERE singleton_id = 1 AND schema_contract_version = 1;
-
-CREATE TABLE intelligence_rights_schedules (
-  environment_id TEXT NOT NULL, schedule_id TEXT NOT NULL, contract_version TEXT NOT NULL CHECK (contract_version = 'intelligence-retention/1'),
-  source_class TEXT NOT NULL CHECK (source_class IN ('synthetic_project_owned','manual_user_owned')), schedule_jcs TEXT NOT NULL CHECK (length(schedule_jcs) <= 8192),
-  created_at TEXT NOT NULL CHECK (created_at GLOB '????-??-??T??:??:??.???Z'), PRIMARY KEY (environment_id, schedule_id)
-);
-CREATE TABLE intelligence_key_metadata (
-  environment_id TEXT NOT NULL, key_id TEXT NOT NULL, algorithm TEXT NOT NULL CHECK (algorithm = 'HMAC-SHA-256'),
-  status TEXT NOT NULL CHECK (status IN ('active','verify-only','revoked','unavailable')), activates_at TEXT NOT NULL,
-  verify_until TEXT, PRIMARY KEY (environment_id,key_id)
-);
+PRAGMA foreign_keys=ON;
+UPDATE platform_schema_metadata SET schema_contract_version=2 WHERE singleton_id=1 AND schema_contract_version=1;
+CREATE TABLE intelligence_rights_schedules(environment_id TEXT NOT NULL,schedule_id TEXT NOT NULL,contract_version TEXT NOT NULL CHECK(contract_version='intelligence-retention/1'),source_class TEXT NOT NULL CHECK(source_class IN('synthetic_project_owned','manual_user_owned')),schedule_jcs TEXT NOT NULL CHECK(length(schedule_jcs)<=8192),created_at TEXT NOT NULL,PRIMARY KEY(environment_id,schedule_id));
+CREATE TABLE intelligence_key_metadata(environment_id TEXT NOT NULL,key_id TEXT NOT NULL,algorithm TEXT NOT NULL CHECK(algorithm='HMAC-SHA-256'),status TEXT NOT NULL CHECK(status IN('active','verify-only','revoked','unavailable')),activates_at TEXT NOT NULL,verify_until TEXT,metadata_version TEXT NOT NULL CHECK(metadata_version='intelligence-key-metadata/1'),PRIMARY KEY(environment_id,key_id));
 CREATE UNIQUE INDEX one_active_intelligence_key_per_environment ON intelligence_key_metadata(environment_id) WHERE status='active';
-
-CREATE TABLE authenticated_intelligence_records (
-  environment_id TEXT NOT NULL, record_id TEXT NOT NULL, stream_id TEXT NOT NULL, record_type TEXT NOT NULL CHECK (record_type IN ('market_observation','canonical_result_observation')),
-  schema_version TEXT NOT NULL CHECK (schema_version='mk-intelligence-record-jcs/1'), contract_version TEXT NOT NULL CHECK (contract_version='authenticated-intelligence-record/1'),
-  rights_schedule_id TEXT NOT NULL, key_id TEXT NOT NULL, idempotency_key TEXT NOT NULL, content_hash TEXT NOT NULL, authentication_tag TEXT NOT NULL,
-  header_jcs TEXT NOT NULL CHECK(length(header_jcs)<=8192), payload_jcs TEXT NOT NULL CHECK(length(payload_jcs)<=49152), parent_head_id TEXT,
-  corrects_record_id TEXT, issued_at TEXT NOT NULL, validated_at TEXT NOT NULL, delete_after TEXT, indefinite_basis TEXT,
-  PRIMARY KEY(environment_id,record_id), UNIQUE(environment_id,idempotency_key), UNIQUE(environment_id,content_hash,record_type),
-  FOREIGN KEY(environment_id,rights_schedule_id) REFERENCES intelligence_rights_schedules(environment_id,schedule_id),
-  FOREIGN KEY(environment_id,key_id) REFERENCES intelligence_key_metadata(environment_id,key_id),
-  FOREIGN KEY(environment_id,parent_head_id) REFERENCES authenticated_intelligence_records(environment_id,record_id),
-  FOREIGN KEY(environment_id,corrects_record_id) REFERENCES authenticated_intelligence_records(environment_id,record_id),
-  CHECK ((delete_after IS NULL) <> (indefinite_basis IS NULL)), CHECK(corrects_record_id IS NULL OR corrects_record_id=parent_head_id)
-);
-CREATE TABLE intelligence_record_parents (
-  environment_id TEXT NOT NULL, child_record_id TEXT NOT NULL, parent_record_id TEXT NOT NULL, ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 15),
-  PRIMARY KEY(environment_id,child_record_id,parent_record_id), UNIQUE(environment_id,child_record_id,ordinal),
-  FOREIGN KEY(environment_id,child_record_id) REFERENCES authenticated_intelligence_records(environment_id,record_id) ON DELETE CASCADE,
-  FOREIGN KEY(environment_id,parent_record_id) REFERENCES authenticated_intelligence_records(environment_id,record_id)
-);
+CREATE TABLE authenticated_intelligence_records(
+ environment_id TEXT NOT NULL,record_id TEXT NOT NULL,stream_id TEXT NOT NULL,record_type TEXT NOT NULL CHECK(record_type IN('market_observation','canonical_result_observation')),schema_version TEXT NOT NULL CHECK(schema_version='mk-intelligence-record-jcs/1'),contract_version TEXT NOT NULL CHECK(contract_version='authenticated-intelligence-record/1'),rights_schedule_id TEXT NOT NULL,key_id TEXT NOT NULL,idempotency_key TEXT NOT NULL,content_hash TEXT NOT NULL,authentication_tag TEXT NOT NULL,header_jcs TEXT NOT NULL CHECK(length(header_jcs)<=8192),payload_jcs TEXT NOT NULL CHECK(length(payload_jcs)<=49152),declared_parent_count INTEGER NOT NULL CHECK(declared_parent_count BETWEEN 0 AND 16),parent_head_id TEXT,corrects_record_id TEXT,issued_at TEXT NOT NULL,validated_at TEXT NOT NULL,project_delete_after TEXT,hard_source_delete_after TEXT,indefinite_basis TEXT,
+ PRIMARY KEY(environment_id,record_id),UNIQUE(environment_id,idempotency_key),UNIQUE(environment_id,content_hash,record_type),UNIQUE(environment_id,record_id,stream_id,record_type),FOREIGN KEY(environment_id,rights_schedule_id) REFERENCES intelligence_rights_schedules(environment_id,schedule_id),FOREIGN KEY(environment_id,key_id) REFERENCES intelligence_key_metadata(environment_id,key_id),FOREIGN KEY(environment_id,parent_head_id) REFERENCES authenticated_intelligence_records(environment_id,record_id),FOREIGN KEY(environment_id,corrects_record_id) REFERENCES authenticated_intelligence_records(environment_id,record_id),CHECK((project_delete_after IS NULL)<>(indefinite_basis IS NULL)),CHECK(hard_source_delete_after IS NULL OR indefinite_basis IS NULL),CHECK((declared_parent_count=0 AND parent_head_id IS NULL) OR (declared_parent_count>0 AND parent_head_id IS NOT NULL)),CHECK(corrects_record_id IS NULL OR corrects_record_id=parent_head_id),CHECK(parent_head_id IS NULL OR parent_head_id<>record_id));
+CREATE TABLE intelligence_record_parents(environment_id TEXT NOT NULL,child_record_id TEXT NOT NULL,child_stream_id TEXT NOT NULL,child_record_type TEXT NOT NULL,parent_record_id TEXT NOT NULL,parent_stream_id TEXT NOT NULL,parent_record_type TEXT NOT NULL,ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 15),PRIMARY KEY(environment_id,child_record_id,parent_record_id),UNIQUE(environment_id,child_record_id,ordinal),FOREIGN KEY(environment_id,child_record_id,child_stream_id,child_record_type) REFERENCES authenticated_intelligence_records(environment_id,record_id,stream_id,record_type),FOREIGN KEY(environment_id,parent_record_id,parent_stream_id,parent_record_type) REFERENCES authenticated_intelligence_records(environment_id,record_id,stream_id,record_type),CHECK(child_stream_id=parent_stream_id),CHECK(child_record_type=parent_record_type),CHECK(child_record_id<>parent_record_id));
 CREATE UNIQUE INDEX intelligence_single_successor ON intelligence_record_parents(environment_id,parent_record_id) WHERE ordinal=0;
-CREATE TABLE intelligence_stream_heads (
-  environment_id TEXT NOT NULL, stream_id TEXT NOT NULL, record_type TEXT NOT NULL, current_record_id TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0),
-  PRIMARY KEY(environment_id,stream_id), FOREIGN KEY(environment_id,current_record_id) REFERENCES authenticated_intelligence_records(environment_id,record_id)
-);
-CREATE TABLE intelligence_retention_dispositions (
-  environment_id TEXT NOT NULL, record_id TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('retained','delete_required','deleted')),
-  delete_after TEXT, indefinite_basis TEXT, legal_hold INTEGER NOT NULL CHECK(legal_hold IN (0,1)), planned_at TEXT NOT NULL,
-  PRIMARY KEY(environment_id,record_id), FOREIGN KEY(environment_id,record_id) REFERENCES authenticated_intelligence_records(environment_id,record_id) ON DELETE CASCADE
-);
-CREATE TABLE intelligence_quarantine_records (
-  environment_id TEXT NOT NULL, quarantine_id TEXT NOT NULL, record_id TEXT, reason TEXT NOT NULL,
-  metadata_jcs TEXT NOT NULL CHECK(length(metadata_jcs)<=2048), created_at TEXT NOT NULL, PRIMARY KEY(environment_id,quarantine_id)
-);
-CREATE TABLE intelligence_audit_events (
-  environment_id TEXT NOT NULL, event_id TEXT NOT NULL, event_type TEXT NOT NULL CHECK(event_type IN ('record_appended','record_rehydrated','record_quarantined','deletion_planned','restore_reconciled')),
-  record_id TEXT, occurred_at TEXT NOT NULL, metadata_jcs TEXT NOT NULL CHECK(length(metadata_jcs)<=2048), PRIMARY KEY(environment_id,event_id)
-);
-
-CREATE TRIGGER intelligence_record_head_guard BEFORE INSERT ON authenticated_intelligence_records BEGIN
-  SELECT CASE
-    WHEN NEW.parent_head_id IS NULL AND EXISTS(SELECT 1 FROM intelligence_stream_heads WHERE environment_id=NEW.environment_id AND stream_id=NEW.stream_id) THEN RAISE(ABORT,'intelligence_head_conflict')
-    WHEN NEW.parent_head_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM intelligence_stream_heads WHERE environment_id=NEW.environment_id AND stream_id=NEW.stream_id AND record_type=NEW.record_type AND current_record_id=NEW.parent_head_id) THEN RAISE(ABORT,'intelligence_head_conflict')
-  END;
-END;
-
-CREATE TRIGGER intelligence_record_stream_scope BEFORE INSERT ON authenticated_intelligence_records WHEN NEW.parent_head_id IS NOT NULL BEGIN
-  SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM authenticated_intelligence_records p WHERE p.environment_id=NEW.environment_id AND p.record_id=NEW.parent_head_id AND p.stream_id=NEW.stream_id AND p.record_type=NEW.record_type) THEN RAISE(ABORT,'intelligence_parent_scope_conflict') END;
-END;
-
-CREATE TRIGGER intelligence_parent_edge_scope BEFORE INSERT ON intelligence_record_parents BEGIN
-  SELECT CASE WHEN NOT EXISTS(
-    SELECT 1 FROM authenticated_intelligence_records child
-    JOIN authenticated_intelligence_records parent ON parent.environment_id=child.environment_id
-      AND parent.record_id=NEW.parent_record_id AND parent.stream_id=child.stream_id AND parent.record_type=child.record_type
-    WHERE child.environment_id=NEW.environment_id AND child.record_id=NEW.child_record_id
-  ) THEN RAISE(ABORT,'intelligence_parent_scope_conflict') END;
-END;
+CREATE TABLE intelligence_record_commits(environment_id TEXT NOT NULL,record_id TEXT NOT NULL,committed_at TEXT NOT NULL,commit_version TEXT NOT NULL CHECK(commit_version='intelligence-record-commit/1'),PRIMARY KEY(environment_id,record_id),FOREIGN KEY(environment_id,record_id) REFERENCES authenticated_intelligence_records(environment_id,record_id));
+CREATE TABLE intelligence_stream_heads(environment_id TEXT NOT NULL,stream_id TEXT NOT NULL,record_type TEXT NOT NULL,current_record_id TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>0),PRIMARY KEY(environment_id,stream_id,record_type),FOREIGN KEY(environment_id,current_record_id,stream_id,record_type) REFERENCES authenticated_intelligence_records(environment_id,record_id,stream_id,record_type));
+CREATE TABLE intelligence_retention_events(environment_id TEXT NOT NULL,event_id TEXT NOT NULL,record_id TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN('retained','delete_required','deleted','provider_exit')),project_delete_after TEXT,hard_source_delete_after TEXT,occurred_at TEXT NOT NULL,metadata_jcs TEXT NOT NULL CHECK(length(metadata_jcs)<=2048),PRIMARY KEY(environment_id,event_id),FOREIGN KEY(environment_id,record_id) REFERENCES authenticated_intelligence_records(environment_id,record_id));
+CREATE INDEX intelligence_retention_record_time ON intelligence_retention_events(environment_id,record_id,occurred_at DESC,event_id DESC);
+CREATE TABLE intelligence_quarantine_records(environment_id TEXT NOT NULL,quarantine_id TEXT NOT NULL,record_id TEXT,reason TEXT NOT NULL,metadata_jcs TEXT NOT NULL CHECK(length(metadata_jcs)<=2048),created_at TEXT NOT NULL,PRIMARY KEY(environment_id,quarantine_id));
+CREATE TABLE intelligence_audit_events(environment_id TEXT NOT NULL,event_id TEXT NOT NULL,event_type TEXT NOT NULL CHECK(event_type IN('record_appended','record_rehydrated','record_quarantined','deletion_planned','restore_reconciled')),record_id TEXT,occurred_at TEXT NOT NULL,metadata_jcs TEXT NOT NULL CHECK(length(metadata_jcs)<=2048),PRIMARY KEY(environment_id,event_id));
+CREATE TABLE governed_deletion_authorizations(environment_id TEXT NOT NULL,authorization_id TEXT NOT NULL,resource_type TEXT NOT NULL CHECK(resource_type IN('record','rights_schedule','key_metadata','audit_event','retention_event','parent_edge','record_commit','stream_head')),resource_id TEXT NOT NULL,authority_class TEXT NOT NULL CHECK(authority_class='external_contractual_deletion'),authority_ref TEXT NOT NULL,issued_at TEXT NOT NULL,expires_at TEXT NOT NULL,PRIMARY KEY(environment_id,authorization_id),UNIQUE(environment_id,resource_type,resource_id));
+CREATE TRIGGER intelligence_commit_complete BEFORE INSERT ON intelligence_record_commits BEGIN SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM authenticated_intelligence_records r WHERE r.environment_id=NEW.environment_id AND r.record_id=NEW.record_id AND r.declared_parent_count=(SELECT COUNT(*) FROM intelligence_record_parents p WHERE p.environment_id=r.environment_id AND p.child_record_id=r.record_id) AND ((r.declared_parent_count=0 AND NOT EXISTS(SELECT 1 FROM intelligence_record_parents p WHERE p.environment_id=r.environment_id AND p.child_record_id=r.record_id)) OR (r.declared_parent_count>0 AND EXISTS(SELECT 1 FROM intelligence_record_parents p WHERE p.environment_id=r.environment_id AND p.child_record_id=r.record_id AND p.ordinal=0 AND p.parent_record_id=r.parent_head_id)))) THEN RAISE(ABORT,'intelligence_incomplete_record') END; END;
+CREATE TRIGGER no_parent_after_commit BEFORE INSERT ON intelligence_record_parents WHEN EXISTS(SELECT 1 FROM intelligence_record_commits c WHERE c.environment_id=NEW.environment_id AND c.record_id=NEW.child_record_id) BEGIN SELECT RAISE(ABORT,'immutable_intelligence_history'); END;
+CREATE TRIGGER intelligence_head_insert_guard BEFORE INSERT ON intelligence_stream_heads BEGIN SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM authenticated_intelligence_records r JOIN intelligence_record_commits c ON c.environment_id=r.environment_id AND c.record_id=r.record_id WHERE r.environment_id=NEW.environment_id AND r.record_id=NEW.current_record_id AND r.stream_id=NEW.stream_id AND r.record_type=NEW.record_type AND r.declared_parent_count=0) THEN RAISE(ABORT,'intelligence_head_scope_conflict') END; END;
+CREATE TRIGGER intelligence_head_update_guard BEFORE UPDATE ON intelligence_stream_heads BEGIN SELECT CASE WHEN NEW.environment_id<>OLD.environment_id OR NEW.stream_id<>OLD.stream_id OR NEW.record_type<>OLD.record_type OR NEW.revision<>OLD.revision+1 OR NOT EXISTS(SELECT 1 FROM authenticated_intelligence_records r JOIN intelligence_record_commits c ON c.environment_id=r.environment_id AND c.record_id=r.record_id WHERE r.environment_id=NEW.environment_id AND r.record_id=NEW.current_record_id AND r.stream_id=NEW.stream_id AND r.record_type=NEW.record_type AND r.parent_head_id=OLD.current_record_id) THEN RAISE(ABORT,'intelligence_head_scope_conflict') END; END;
+CREATE TRIGGER no_update_intelligence_records BEFORE UPDATE ON authenticated_intelligence_records BEGIN SELECT RAISE(ABORT,'immutable_intelligence_history'); END;
+CREATE TRIGGER no_update_intelligence_parents BEFORE UPDATE ON intelligence_record_parents BEGIN SELECT RAISE(ABORT,'immutable_intelligence_history'); END;
+CREATE TRIGGER no_update_intelligence_rights BEFORE UPDATE ON intelligence_rights_schedules BEGIN SELECT RAISE(ABORT,'immutable_intelligence_history'); END;
+CREATE TRIGGER no_update_intelligence_keys BEFORE UPDATE ON intelligence_key_metadata BEGIN SELECT RAISE(ABORT,'immutable_intelligence_history'); END;
+CREATE TRIGGER no_update_intelligence_commits BEFORE UPDATE ON intelligence_record_commits BEGIN SELECT RAISE(ABORT,'immutable_intelligence_history'); END;
+CREATE TRIGGER no_update_intelligence_audit BEFORE UPDATE ON intelligence_audit_events BEGIN SELECT RAISE(ABORT,'immutable_intelligence_history'); END;
+CREATE TRIGGER no_update_intelligence_retention BEFORE UPDATE ON intelligence_retention_events BEGIN SELECT RAISE(ABORT,'immutable_intelligence_history'); END;
+CREATE TRIGGER no_delete_intelligence_records BEFORE DELETE ON authenticated_intelligence_records WHEN NOT EXISTS(SELECT 1 FROM governed_deletion_authorizations a WHERE a.environment_id=OLD.environment_id AND a.resource_type='record' AND a.resource_id=OLD.record_id AND a.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) BEGIN SELECT RAISE(ABORT,'governed_deletion_required'); END;
+CREATE TRIGGER no_delete_intelligence_rights BEFORE DELETE ON intelligence_rights_schedules WHEN NOT EXISTS(SELECT 1 FROM governed_deletion_authorizations a WHERE a.environment_id=OLD.environment_id AND a.resource_type='rights_schedule' AND a.resource_id=OLD.schedule_id AND a.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) BEGIN SELECT RAISE(ABORT,'governed_deletion_required'); END;
+CREATE TRIGGER no_delete_intelligence_keys BEFORE DELETE ON intelligence_key_metadata WHEN NOT EXISTS(SELECT 1 FROM governed_deletion_authorizations a WHERE a.environment_id=OLD.environment_id AND a.resource_type='key_metadata' AND a.resource_id=OLD.key_id AND a.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) BEGIN SELECT RAISE(ABORT,'governed_deletion_required'); END;
+CREATE TRIGGER no_delete_intelligence_parents BEFORE DELETE ON intelligence_record_parents WHEN NOT EXISTS(SELECT 1 FROM governed_deletion_authorizations a WHERE a.environment_id=OLD.environment_id AND a.resource_type='parent_edge' AND a.resource_id=OLD.child_record_id||':'||OLD.parent_record_id AND a.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) BEGIN SELECT RAISE(ABORT,'governed_deletion_required'); END;
+CREATE TRIGGER no_delete_intelligence_commits BEFORE DELETE ON intelligence_record_commits WHEN NOT EXISTS(SELECT 1 FROM governed_deletion_authorizations a WHERE a.environment_id=OLD.environment_id AND a.resource_type='record_commit' AND a.resource_id=OLD.record_id AND a.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) BEGIN SELECT RAISE(ABORT,'governed_deletion_required'); END;
+CREATE TRIGGER no_delete_intelligence_audit BEFORE DELETE ON intelligence_audit_events WHEN NOT EXISTS(SELECT 1 FROM governed_deletion_authorizations a WHERE a.environment_id=OLD.environment_id AND a.resource_type='audit_event' AND a.resource_id=OLD.event_id AND a.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) BEGIN SELECT RAISE(ABORT,'governed_deletion_required'); END;
+CREATE TRIGGER no_delete_intelligence_retention BEFORE DELETE ON intelligence_retention_events WHEN NOT EXISTS(SELECT 1 FROM governed_deletion_authorizations a WHERE a.environment_id=OLD.environment_id AND a.resource_type='retention_event' AND a.resource_id=OLD.event_id AND a.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) BEGIN SELECT RAISE(ABORT,'governed_deletion_required'); END;
+CREATE TRIGGER no_delete_intelligence_head BEFORE DELETE ON intelligence_stream_heads WHEN NOT EXISTS(SELECT 1 FROM governed_deletion_authorizations a WHERE a.environment_id=OLD.environment_id AND a.resource_type='stream_head' AND a.resource_id=OLD.stream_id||':'||OLD.record_type AND a.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')) BEGIN SELECT RAISE(ABORT,'governed_deletion_required'); END;
