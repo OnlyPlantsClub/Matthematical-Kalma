@@ -25,7 +25,7 @@ Exit: passed — boundary, invariant, precision and replay tests pass; independe
 
 ## Phase 2 — Manual/sample ingestion
 
-**Status:** normalized observation slice independently validated and passed on `agent/market-observation-core`; no persistence, provider integration or deployment. The validated slice adds the complete `source-envelope-v1`, explicit replay limitations, strict fixture schemas, hostile-object containment and calculation-ready fail-closed handoff. Deduplication, corrections, identity resolution, hash verification and append-only storage remain required before Phase 2 exit.
+**Status:** in progress. The normalized observation slice was independently validated on `agent/market-observation-core`. The first provider-neutral identity subset on `agent/canonical-event-identity` now adds opaque canonical sport/competition/participant/event contracts, exact-only alias resolution with ambiguity quarantine, append-only observation deduplication/correction classification and supplied-byte SHA-256 verification. No persistence, provider/result ingestion or deployment exists; append-only storage and independent-import integration remain required before Phase 2 exit.
 
 - Implement the adapter contract for approved manual/file fixtures only.
 - Normalise source, event, participant, market, outcome, quote and result candidates; quarantine ambiguity.

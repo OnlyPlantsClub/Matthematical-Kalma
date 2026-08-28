@@ -76,4 +76,6 @@ Exported errors are `invalid_input`, `unknown_field`, `credential_field`, `inspe
 
 Supported now: strict manual/in-memory normalization, exact canonical IDs, full validated source envelopes, explicit replay limitations, pre-match timestamps, baseline freshness classification, price/market states, provenance references and fail-closed deterministic odds handoff.
 
-Deferred: paid-provider selection, automated acquisition, legal/licensing approval, provider timestamp/hash trust and skew allowances, sport/market/operator freshness selection, identity mapping and correction workflows, actual raw/canonical retention, digest recomputation, persistence, D1 migrations, APIs, UI, forecasting, recommendations, staking and wager execution.
+The adjacent provider-neutral contracts in [CANONICAL_IDENTITY_AND_DEDUPLICATION.md](CANONICAL_IDENTITY_AND_DEDUPLICATION.md) now implement exact identity mapping/quarantine, in-memory duplicate/correction classification and verification of supplied retained payload bytes. They do not mutate this normalized observation contract.
+
+Deferred: paid-provider selection, automated acquisition, legal/licensing approval, provider timestamp trust and skew allowances, sport/market/operator freshness selection, actual raw/canonical retention, persistent correction storage, D1 migrations, results, APIs, UI, forecasting, recommendations, staking and wager execution.
