@@ -13,7 +13,7 @@
     "start": "vinext start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern worker-configuration.d.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test",
+    "test": "node --experimental-strip-types --test",
     "migrations:validate": "node scripts/validate-migrations.mjs",
     "deploy:guard:test": "node --test tests/cloudflare-deploy-guard.test.mjs",
     "migrations:apply:local": "wrangler d1 migrations apply DB --local",

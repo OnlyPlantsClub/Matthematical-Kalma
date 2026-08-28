@@ -41,6 +41,14 @@ Nothing in this register authorises data acquisition, real-money use or provider
 | O-28 | Correlation | Begin conservative exposure groups; determine evidence threshold for joint scenarios/covariance and constrained portfolio Kelly. |
 | O-29 | Arbitrage buffer | Define freshness, slippage, commission, currency, partial-fill, minimum-return and unknown-limit rules by source/ruleset. |
 
+### Resolved for the deterministic odds slice
+
+- **Numeric representation:** ADR-0004 controls. Decimal odds are canonical strings at `1e-6`; probabilities/rates are scaled at `1e-9`; calculations use exact integer/rational arithmetic and half-even division rounding.
+- **O-20 first baseline:** proportional normalization is method `proportional` version `1`. It is a reproducible market baseline, not market truth; alternative methods remain future evaluation work.
+- **Completeness:** market calculations require at least two caller-declared exhaustive, mutually exclusive outcomes with unique IDs and active, current, present prices. This slice validates the declaration; canonical event/market equivalence remains future work.
+- **Expected value:** version 1 is the binary unit-stake formula `EV = pd - 1`, excluding pushes, voids, commission, fees and execution effects. General payoff states remain unresolved.
+- **Probability-vector rounding:** exact proportional shares use largest-remainder apportionment at `1e9`, with original outcome order as the deterministic exact-tie breaker, so the output sums to exactly one.
+
 ## Sport boundaries
 
 | ID | Decision needed | Dependency |
