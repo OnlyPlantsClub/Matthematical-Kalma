@@ -1,19 +1,9 @@
 import { normalizeMarketObservation, type NormalizedMarketSnapshot, type ObservationErrorCode, type ObservationResult } from './market-observation.ts';
-
-const CREDENTIAL_FIELD_NAMES = new Set([
-  'apikey', 'apikeys', 'accesstoken', 'accesstokens', 'refreshtoken', 'refreshtokens', 'clientsecret',
-  'clientsecrets', 'password', 'passwords', 'credential', 'credentials', 'authorization', 'authorizationfield',
-  'authorizationfields', 'authorizationheader', 'authorizationheaders', 'bearer', 'bearertoken', 'bearertokens',
-  'bearervalue', 'bearervalues', 'cookie', 'cookies', 'setcookie',
-]);
+import { inspectJsonCompatibleInput, isCredentialFieldName } from './untrusted-json.ts';
 
 function failure<T>(code: ObservationErrorCode, message: string, path: string): ObservationResult<T> {
   const error = Object.freeze({ code, message, path });
   return Object.freeze({ ok: false, error });
-}
-
-function normalizedFieldName(key: string): string {
-  return key.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
 }
 
 function safeDataRecord(input: unknown, allowed: readonly string[], path: string): ObservationResult<Record<string, unknown>> {
@@ -29,7 +19,7 @@ function safeDataRecord(input: unknown, allowed: readonly string[], path: string
     const descriptor = descriptors[key];
     if (!descriptor || !Object.hasOwn(descriptor, 'value')) return failure('invalid_input', 'Accessor fixture fields are not supported.', `${path}.${key}`);
     if (!allowedSet.has(key)) {
-      const credentialLike = CREDENTIAL_FIELD_NAMES.has(normalizedFieldName(key));
+      const credentialLike = isCredentialFieldName(key);
       return failure(credentialLike ? 'credential_field' : 'unknown_field',
         credentialLike ? 'Credential-bearing fields are forbidden at this boundary.' : 'Unknown fixture field is not allowed.', `${path}.${key}`);
     }
@@ -39,37 +29,36 @@ function safeDataRecord(input: unknown, allowed: readonly string[], path: string
 }
 
 export function normalizeManualMarketFixture(input: unknown): ObservationResult<NormalizedMarketSnapshot> {
-  try {
-    const wrapper = safeDataRecord(input, [
-      'format', 'observation', 'sourceEnvelope', 'identity', 'times', 'policy', 'completeness', 'status', 'selections',
-    ], '$');
-    if (!wrapper.ok) return wrapper;
-    if (wrapper.value.format === 'canonical-manual-v1') {
-      const canonicalShape = safeDataRecord(input, ['format', 'observation'], '$');
-      if (!canonicalShape.ok) return canonicalShape;
-      return normalizeMarketObservation(canonicalShape.value.observation);
-    }
-    if (wrapper.value.format !== 'compact-manual-v1') return failure('invalid_input', 'Unsupported manual fixture format.', '$.format');
-    const compactShape = safeDataRecord(input, ['format', 'sourceEnvelope', 'identity', 'times', 'policy', 'completeness', 'status', 'selections'], '$');
-    if (!compactShape.ok) return compactShape;
-    const identity = safeDataRecord(compactShape.value.identity, ['sport', 'competition', 'event', 'market'], '$.identity');
-    if (!identity.ok) return identity;
-    const times = safeDataRecord(compactShape.value.times, ['start', 'asOf'], '$.times');
-    if (!times.ok) return times;
-    return normalizeMarketObservation({
-      sourceEnvelope: compactShape.value.sourceEnvelope,
-      sportId: identity.value.sport,
-      competitionId: identity.value.competition,
-      eventId: identity.value.event,
-      marketId: identity.value.market,
-      eventStartAt: times.value.start,
-      asOf: times.value.asOf,
-      freshnessPolicy: compactShape.value.policy,
-      completeness: compactShape.value.completeness,
-      marketAvailability: compactShape.value.status,
-      outcomes: compactShape.value.selections,
-    });
-  } catch {
-    return failure('invalid_input', 'Manual fixture could not be safely inspected as JSON-compatible data.', '$');
+  const inspected = inspectJsonCompatibleInput(input);
+  if (!inspected.ok) return inspected;
+  const trustedFixture = inspected.value.data;
+  const wrapper = safeDataRecord(trustedFixture, [
+    'format', 'observation', 'sourceEnvelope', 'identity', 'times', 'policy', 'completeness', 'status', 'selections',
+  ], '$');
+  if (!wrapper.ok) return wrapper;
+  if (wrapper.value.format === 'canonical-manual-v1') {
+    const canonicalShape = safeDataRecord(trustedFixture, ['format', 'observation'], '$');
+    if (!canonicalShape.ok) return canonicalShape;
+    return normalizeMarketObservation(canonicalShape.value.observation);
   }
+  if (wrapper.value.format !== 'compact-manual-v1') return failure('invalid_input', 'Unsupported manual fixture format.', '$.format');
+  const compactShape = safeDataRecord(trustedFixture, ['format', 'sourceEnvelope', 'identity', 'times', 'policy', 'completeness', 'status', 'selections'], '$');
+  if (!compactShape.ok) return compactShape;
+  const identity = safeDataRecord(compactShape.value.identity, ['sport', 'competition', 'event', 'market'], '$.identity');
+  if (!identity.ok) return identity;
+  const times = safeDataRecord(compactShape.value.times, ['start', 'asOf'], '$.times');
+  if (!times.ok) return times;
+  return normalizeMarketObservation({
+    sourceEnvelope: compactShape.value.sourceEnvelope,
+    sportId: identity.value.sport,
+    competitionId: identity.value.competition,
+    eventId: identity.value.event,
+    marketId: identity.value.market,
+    eventStartAt: times.value.start,
+    asOf: times.value.asOf,
+    freshnessPolicy: compactShape.value.policy,
+    completeness: compactShape.value.completeness,
+    marketAvailability: compactShape.value.status,
+    outcomes: compactShape.value.selections,
+  });
 }

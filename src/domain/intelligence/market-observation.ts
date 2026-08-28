@@ -2,6 +2,12 @@ import {
   MAX_MARKET_OUTCOMES, MAX_OBSERVATION_REF_LENGTH, MAX_OUTCOME_ID_LENGTH,
   type MarketPriceInput, validateDecimalOdds,
 } from './odds.ts';
+import {
+  UNTRUSTED_INSPECTION_LIMITS, inspectJsonCompatibleInput, isCredentialFieldName,
+  type InspectionUsage, type JsonRecord, type JsonValue,
+} from './untrusted-json.ts';
+
+export { UNTRUSTED_INSPECTION_LIMITS } from './untrusted-json.ts';
 
 export const MAX_CANONICAL_ID_LENGTH = 128;
 export const MAX_SOURCE_REFERENCE_LENGTH = 256;
@@ -15,7 +21,8 @@ export const BASELINE_FRESHNESS_POLICY = Object.freeze({
 } as const);
 
 export type ObservationErrorCode =
-  | 'invalid_input' | 'unknown_field' | 'credential_field' | 'invalid_identifier' | 'invalid_reference'
+  | 'invalid_input' | 'unknown_field' | 'credential_field' | 'inspection_limit_exceeded' | 'repeated_reference'
+  | 'invalid_identifier' | 'invalid_reference'
   | 'invalid_provenance' | 'invalid_replay_contract' | 'invalid_timestamp' | 'invalid_time_order'
   | 'future_observation' | 'post_start' | 'unsupported_policy' | 'invalid_market' | 'incomplete_market'
   | 'stale_observation' | 'suspended_market' | 'suspended_outcome' | 'invalid_outcome'
@@ -27,7 +34,14 @@ export interface ObservationError {
   readonly path: string;
   readonly inputIndex?: number;
   readonly outcomeId?: string;
-  readonly metadata?: Readonly<{ inputIndex?: number; outcomeId?: string }>;
+  readonly metadata?: Readonly<{
+    inputIndex?: number;
+    outcomeId?: string;
+    limitName?: keyof Omit<typeof UNTRUSTED_INSPECTION_LIMITS, 'version'>;
+    limit?: number;
+    actual?: number;
+    usage?: InspectionUsage;
+  }>;
 }
 
 export type ObservationResult<T> =
@@ -96,24 +110,10 @@ export interface NormalizedMarketSnapshot {
   readonly outcomes: readonly NormalizedMarketOutcome[];
 }
 
-type JsonPrimitive = string | number | boolean | null;
-type JsonValue = JsonPrimitive | JsonRecord | JsonValue[];
-type JsonRecord = { [key: string]: JsonValue };
-
 const CANONICAL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
 const REFERENCE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/@-]*$/;
 const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const UTC_MILLISECOND_PATTERN = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}Z$/;
-const CREDENTIAL_FIELD_NAMES = new Set([
-  'apikey', 'apikeys', 'accesstoken', 'accesstokens', 'refreshtoken', 'refreshtokens', 'clientsecret',
-  'clientsecrets', 'password', 'passwords', 'credential', 'credentials', 'authorization', 'authorizationfield',
-  'authorizationfields', 'authorizationheader', 'authorizationheaders', 'bearer', 'bearertoken', 'bearertokens',
-  'bearervalue', 'bearervalues', 'cookie', 'cookies', 'setcookie',
-]);
-const MAX_UNTRUSTED_DEPTH = 8;
-const MAX_UNTRUSTED_KEYS = 64;
-const MAX_UNTRUSTED_ARRAY_LENGTH = MAX_MARKET_OUTCOMES + 1;
-const MAX_UNTRUSTED_STRING_LENGTH = 1_024;
 
 function deepFreeze<T>(value: T): T {
   if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
@@ -133,79 +133,20 @@ function failure<T>(code: ObservationErrorCode, message: string, path: string, c
   return Object.freeze({ ok: false, error });
 }
 
-function unsafeCloneJsonCompatible(input: unknown, path: string, depth: number): ObservationResult<JsonValue> {
-  if (input === null || typeof input === 'boolean') return success(input);
-  if (typeof input === 'string') {
-    if (input.length > MAX_UNTRUSTED_STRING_LENGTH) return failure('invalid_input', 'Untrusted string exceeds the boundary limit.', path);
-    return success(input);
-  }
-  if (typeof input === 'number') return Number.isFinite(input)
-    ? success(input)
-    : failure('invalid_input', 'Untrusted numeric values must be finite.', path);
-  if (typeof input !== 'object' || input === null || depth > MAX_UNTRUSTED_DEPTH) {
-    return failure('invalid_input', 'Input must contain only bounded JSON-compatible values.', path);
-  }
-
-  const prototype = Object.getPrototypeOf(input);
-  if (Array.isArray(input)) {
-    if (prototype !== Array.prototype) return failure('invalid_input', 'Arrays must use the standard Array prototype.', path);
-    if (input.length > MAX_UNTRUSTED_ARRAY_LENGTH) return failure('market_limit_exceeded', `An input array must not exceed ${MAX_UNTRUSTED_ARRAY_LENGTH} entries.`, path);
-    const descriptors = Object.getOwnPropertyDescriptors(input);
-    const keys = Reflect.ownKeys(descriptors);
-    if (keys.some((key) => typeof key === 'symbol')) return failure('invalid_input', 'Symbol keys are not supported.', path);
-    const clone: JsonValue[] = [];
-    for (let index = 0; index < input.length; index += 1) {
-      const descriptor = descriptors[String(index)];
-      if (!descriptor || !Object.hasOwn(descriptor, 'value')) return failure('invalid_input', 'Arrays must be dense data-only arrays.', `${path}[${index}]`, { inputIndex: index });
-      const cloned = unsafeCloneJsonCompatible(descriptor.value, `${path}[${index}]`, depth + 1);
-      if (!cloned.ok) return cloned;
-      clone.push(cloned.value);
-    }
-    const unexpected = keys.filter((key) => key !== 'length' && !/^(?:0|[1-9]\d*)$/.test(String(key)));
-    if (unexpected.length > 0) return failure('unknown_field', 'Arrays must not contain named properties.', `${path}.${String(unexpected[0])}`);
-    return success(clone);
-  }
-
-  if (prototype !== Object.prototype && prototype !== null) return failure('invalid_input', 'Records must be plain JSON-compatible objects.', path);
-  const descriptors = Object.getOwnPropertyDescriptors(input);
-  const keys = Reflect.ownKeys(descriptors);
-  if (keys.length > MAX_UNTRUSTED_KEYS) return failure('invalid_input', 'Object contains too many fields.', path);
-  const clone: JsonRecord = Object.create(null) as JsonRecord;
-  for (const key of keys) {
-    if (typeof key !== 'string') return failure('invalid_input', 'Symbol keys are not supported.', path);
-    const descriptor = descriptors[key];
-    if (!descriptor || !Object.hasOwn(descriptor, 'value')) return failure('invalid_input', 'Accessor properties are not supported.', `${path}.${key}`);
-    if (CREDENTIAL_FIELD_NAMES.has(normalizedFieldName(key))) {
-      return failure('credential_field', 'Credential-bearing fields are forbidden at this boundary.', `${path}.${key}`);
-    }
-    const cloned = unsafeCloneJsonCompatible(descriptor.value, `${path}.${key}`, depth + 1);
-    if (!cloned.ok) return cloned;
-    clone[key] = cloned.value;
-  }
-  return success(clone);
-}
-
 function snapshotUntrusted(input: unknown): ObservationResult<JsonValue> {
-  try {
-    return unsafeCloneJsonCompatible(input, '$', 0);
-  } catch {
-    return failure('invalid_input', 'Input could not be safely inspected as JSON-compatible data.', '$');
-  }
+  const inspected = inspectJsonCompatibleInput(input);
+  return inspected.ok ? success(inspected.value.data) : inspected;
 }
 
 function isRecord(input: JsonValue | undefined): input is JsonRecord {
   return typeof input === 'object' && input !== null && !Array.isArray(input);
 }
 
-function normalizedFieldName(key: string): string {
-  return key.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
-}
-
 function validateShape(input: JsonRecord, allowed: readonly string[], path: string): ObservationResult<JsonRecord> {
   const allowedSet = new Set(allowed);
   for (const key of Object.keys(input)) {
     if (allowedSet.has(key)) continue;
-    const credentialLike = CREDENTIAL_FIELD_NAMES.has(normalizedFieldName(key));
+    const credentialLike = isCredentialFieldName(key);
     return failure(
       credentialLike ? 'credential_field' : 'unknown_field',
       credentialLike ? 'Credential-bearing fields are forbidden at this boundary.' : 'Unknown field is not allowed by this contract.',
