@@ -55,7 +55,7 @@ Nothing in this register authorises data acquisition, real-money use or provider
 - **Ordering:** comparable integer source sequence precedes observation time, receipt time and opaque reference; sequence/time disagreement is retained in the decision.
 - **Resolved verification boundary:** when retained payload bytes are supplied, compare them with the supplied canonical SHA-256 using Web Crypto under a 1 MiB pre-hash limit; strings explicitly mean UTF-8, object serialization is undefined, and missing bytes are `not_verifiable`.
 
-Still open: provider trust in the supplied digest and timestamps; how providers/adapters produce the canonical payload bytes/hash; provider-specific permitted retention and locator durability; the implementation of the approved authenticated retrieval/rehydration workflow; persistence schemas and constraints; provider/result sources; sport-specific event revision tolerances; quarantine operations; and production-scale graph/payload limits.
+Still open: provider trust in supplied digests and timestamps; how future providers/adapters produce canonical payload bytes; provider-specific permitted retention and locator durability; provider/result sources; sport-specific event revision tolerances; operational quarantine/deletion-ledger implementations; result-observation authority reconstruction; and production-scale graph/payload limits. TASK-22 implements the approved authenticated retrieval/rehydration and D1 schema only for synthetic and explicitly user-owned manual fixtures, pending review.
 
 ### Resolved for the TASK-21 implementation candidate
 

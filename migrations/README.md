@@ -4,7 +4,8 @@ This directory is the ordered, forward-only schema history for every Matthematic
 
 - Name files `NNNN_lowercase_description.sql` using the next four-digit number.
 - Never edit a migration after it has been applied remotely. Add a forward fix instead.
-- Keep identity and owner-scoping schema out of this foundation migration; Step 2 owns those tables after infrastructure readiness is confirmed.
+- `0001` is the harmless platform anchor. `0002` deliberately advances the schema contract to version 2 for authenticated shared-intelligence persistence; it contains no user betting, financial or provider data and no secret material.
+- Migrations are forward-only. There is no destructive down migration; compatibility is verified from a fresh database and from the immediately preceding schema contract.
 - Apply and validate locally before review:
 
   ```sh

@@ -27,12 +27,12 @@ Exit: passed — boundary, invariant, precision and replay tests pass; independe
 
 ## Phase 2 — Manual/sample ingestion
 
-**Status:** the provider-neutral canonical identity subset and the TASK-21 canonical result-observation and settlement-fact slice passed independent validation and were integrated into canonical `main`. Phase 2 and TASK-04 remain incomplete; live provider ingestion, persistence, APIs, production operations and deployment remain deferred.
+**Status:** the provider-neutral canonical identity subset and the TASK-21 canonical result-observation and settlement-fact slice passed independent validation and were integrated into canonical `main`. TASK-22 now has a feature-branch implementation of authenticated persistence for synthetic and explicitly user-owned manual fixtures, awaiting independent review and integration. Phase 2 and TASK-04 remain incomplete; live provider ingestion, APIs, production operations and deployment remain deferred.
 
 - Implement the adapter contract for approved manual/file fixtures only.
 - Normalise source, event, participant, market, outcome, quote and result candidates; quarantine ambiguity.
 - Build append-only snapshots, movement and provenance inspection. No automated retrieval.
-- After independent review of ADR-0015/0016, implement provider-neutral persistence only for synthetic and explicitly user-owned manual fixtures. Every record requires a rights disposition; authenticated rehydration must issue a new runtime capability through current validators.
+- Independently review and integrate the TASK-22 provider-neutral persistence slice. It supports only synthetic and explicitly user-owned manual fixtures, requires a rights disposition, and rehydrates market observations through the current validator into a newly allocated runtime value. Result-observation rehydration remains fail-closed until resolver authority can be reconstructed honestly.
 
 Exit: two independent imports deduplicate deterministically; correction, staleness and full-lineage replays pass.
 
