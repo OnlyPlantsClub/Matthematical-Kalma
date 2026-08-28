@@ -123,9 +123,13 @@ No acquisition method is presumed lawful, licensed, stable or technically allowe
 ```ts
 type SourceEnvelope<T> = {
   sourceId: string; sourceRecordId?: string; sourceSchemaVersion: string;
-  observedAt?: string; receivedAt: string; effectiveAt?: string;
+  adapterId: string; adapterVersion: string;
+  observedAt: string; receivedAt: string; effectiveAt: string;
   termsVersion: string; retrievalMethod: 'licensed_api' | 'file_import' | 'manual';
-  payloadHash: string; payloadLocator?: string; data: T;
+  payloadHash: string; payloadLocator?: string;
+  replayMode: 'full_payload_retained' | 'hash_and_retrievable_locator' |
+    'hash_only_verification' | 'not_fully_replayable';
+  replayLimitation?: string; data: T;
 };
 
 interface SourceAdapter {
@@ -137,7 +141,7 @@ interface SourceAdapter {
 }
 ```
 
-Adapters do not resolve ambiguous identities, de-vig prices, generate features, forecast, recommend or settle. They emit candidates plus provenance. Manual/sample import implements the same contract. Raw bytes may be retained only when contractual/privacy policy permits; otherwise retain the permitted canonical fields, locator, hash, adapter/terms versions and a declared replay limitation.
+Adapters do not resolve ambiguous identities, de-vig prices, generate features, forecast, recommend or settle. They emit candidates plus provenance. Manual/sample import implements the same contract. Raw bytes may be retained only when contractual/privacy policy permits; otherwise retain the permitted canonical fields, locator where one remains valid, canonical payload hash, adapter/terms versions and an explicit replay mode/limitation. A hash-only record supports later verification of supplied bytes but does not reconstruct them and must not be described as complete replay.
 
 ## 6. Mathematical framework
 

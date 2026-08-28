@@ -25,7 +25,7 @@ Exit: passed — boundary, invariant, precision and replay tests pass; independe
 
 ## Phase 2 — Manual/sample ingestion
 
-**Status:** first in-memory observation-contract increment implemented on `agent/market-observation-core`; no persistence, provider integration or deployment. Provider-neutral canonical identities, prices, provenance references, strict time semantics and deterministic baseline freshness now hand off to the Phase 1 odds core. Deduplication, corrections, identity resolution, hashes and append-only storage remain required before Phase 2 exit.
+**Status:** independent-review corrections in progress on `agent/market-observation-core`; no persistence, provider integration or deployment. The correction adds the complete `source-envelope-v1`, explicit replay limitations, strict fixture schemas, hostile-object containment and calculation-ready fail-closed handoff. Deduplication, corrections, identity resolution, hash verification and append-only storage remain required before Phase 2 exit.
 
 - Implement the adapter contract for approved manual/file fixtures only.
 - Normalise source, event, participant, market, outcome, quote and result candidates; quarantine ambiguity.
