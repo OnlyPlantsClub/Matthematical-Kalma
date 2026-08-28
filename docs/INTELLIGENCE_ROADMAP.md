@@ -25,7 +25,7 @@ Exit: passed — boundary, invariant, precision and replay tests pass; independe
 
 ## Phase 2 — Manual/sample ingestion
 
-**Status:** the provider-neutral canonical identity subset passed independent review and was approved for integration into canonical `main`. TASK-21 independent-review corrections are in progress: outcome-matrix, complete-lineage, conflict, correction-authority, ordering and participant-mapping blockers have an implementation candidate awaiting another independent read-only review. Phase 2, TASK-04 and TASK-21 remain incomplete; no persistence, live provider ingestion or deployment exists.
+**Status:** the provider-neutral canonical identity subset and the TASK-21 canonical result-observation and settlement-fact slice passed independent validation and were integrated into canonical `main`. Phase 2 and TASK-04 remain incomplete; live provider ingestion, persistence, APIs, production operations and deployment remain deferred.
 
 - Implement the adapter contract for approved manual/file fixtures only.
 - Normalise source, event, participant, market, outcome, quote and result candidates; quarantine ambiguity.
