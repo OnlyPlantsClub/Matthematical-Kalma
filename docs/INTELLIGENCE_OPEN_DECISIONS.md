@@ -57,6 +57,8 @@ Still open: provider trust in the supplied digest and timestamps; how providers/
 
 Still open for TASK-21: independent review and integration; authoritative result-provider governance; sport/ruleset-specific void, push, dead-heat and abandonment policy; whether provisional results can ever settle; correction approval authority; comparable provider-sequence semantics; persistence constraints and operational quarantine workflow.
 
+Second-review candidate clarification: mapping references now require immutable resolved exact-key evidence, lifecycle progression is versioned, and settlement validates a declared authoritative observation snapshot. Still open are who may attest snapshot authority, how persistence prevents omissions, evidence expiry/governance beyond fail-closed status, and durable snapshot identifiers. The in-memory contract guarantees fork freedom only within the supplied validated authoritative snapshot.
+
 | ID | Decision needed | Proposed starting point / experiment |
 | --- | --- | --- |
 | O-20 | De-vig methods | Proportional baseline; compare power/odds-ratio and source-specific treatments out of sample. |

@@ -8,8 +8,10 @@ Status: TASK-21 implementation candidate; incomplete until independent review an
 
 - `normalizeSourceResultObservation` validates `source-result-observation-v1`: exactly what a provider reported, `source-envelope-v1`, payload hash/replay declaration, provider event/participant/role references and optional source sequence. It survives unresolved canonical identity and cannot produce a settlement fact itself.
 - `normalizeCanonicalResultObservation` validates `canonical-result-observation-v1`: one exact `canonical-identity-v2` event, a one-to-one evidence-backed source-participant mapping, normalized lifecycle, sport-neutral outcomes/placements/scores, immutable provenance and explicit correction parent.
+- `normalizeCanonicalResultValue` parses and validates one canonical observation directly. It never fabricates a parent or invokes history classification.
 - `validateResultCorrectionLineage` validates a bounded current-to-root collection of complete immutable observations and returns `validated-result-lineage-v1`.
-- `deriveSettlementFact` now receives complete `ancestors`, validates them, and emits `settlement-fact-v1` retaining the exact observations and participant mappings. Bare correction-reference lists are not accepted.
+- `validateResultObservationGraph` validates one declared authoritative snapshot, its selected current observation and complete graph.
+- `deriveSettlementFact` receives the complete graph input, revalidates it internally, and emits `settlement-fact-v1` retaining `validated-result-graph-v1`. Bare references or a selected ancestry alone are not accepted.
 - `classifyResultObservationHistory` classifies an append-only candidate as new, exact duplicate, unchanged lifecycle transition, correction, reversion, conflict or already superseded. Structural graph errors remain typed failures.
 
 All functions accept `unknown`, inspect it with `untrusted-json-inspection-v2`, reject unknown/credential-bearing fields, and return recursively frozen success or failure trees. They do not read the clock, random state, network or storage.
@@ -49,9 +51,11 @@ Corrections append a new immutable `corrected` observation with `correctsObserva
 
 Exact replay of the same immutable observation is `exact_duplicate`. The same facts with new provenance or lifecycle are `unchanged_transition`. Every unlinked contradictory fact in the same canonical result scope is a conflict, including same-provider winner reversals. The policy never selects a provider by recency, popularity, majority or array order.
 
+`result-lifecycle-transition/1` permits only scheduled→in-progress/postponed, in-progress→provisional/official/abandoned/cancelled, and provisional→official when participant facts and completion time agree. Same-state, same-fact observations require equal completion data to be unchanged. Official→provisional, terminal→non-terminal, unlinked corrected states and incompatible completion data conflict. Corrections use only the linked governed correction path.
+
 ## Identity and provenance
 
-Canonical normalization requires exact equality for entity-tagged event, sport and competition IDs; canonical identity contract version; event start; and the complete participant ID, role ID and role-semantic set. Each provider participant and role is uniquely mapped to one canonical participant, role ID and semantic role with an identity-evidence reference and the exact source/provider/event scope. Every source and canonical participant appears exactly once; unrelated, missing, duplicate, ambiguous and cross-event mappings fail closed. Source schema and adapter lineage are retained with the prior provenance fields.
+Canonical normalization requires exact equality for entity-tagged event, sport and competition IDs; canonical identity contract version; event start; and the complete participant ID, role ID and role-semantic set. Each provider participant and role is uniquely mapped to one canonical participant, role ID and semantic role. Every mapping must name a unique `result-mapping-evidence-v1` record that exactly binds source, provider, provider event, provider participant/role, canonical sport/competition/event/participant/role, identity version and supporting evidence references. Only `resolved` plus `exact_source_key` is accepted; invented, missing, ambiguous, rejected, expired, superseded, similarity-based or scope-mismatched evidence fails closed. The immutable evidence set is retained in canonical observations and settlement facts.
 
 Settlement facts retain the exact validated lineage observations, mapping records, canonical/source references, evidence and event identity. This proves only deterministic interpretation of supplied validated observations; it does not prove provider truth, payload availability or persistence.
 
@@ -61,11 +65,19 @@ All instants are strict UTC ISO-8601 milliseconds. Offset-bearing, missing-milli
 
 `eventStartAt <= completedAt <= effectiveAt <= observedAt <= receivedAt <= evaluationAt`
 
-For every successor, effective, observed and receipt times must not predate the parent; `correctionAt` must be at or after both parent and successor receipt and not after evaluation. Comparable canonical integer source sequences must strictly advance. A decreasing/equal comparable sequence fails even when timestamps advance. Missing or incomparable sequences provide no evidence and therefore require at least one strictly advancing timestamp. Equal source timestamps are accepted only with a strictly advancing comparable sequence (or a later correction time); wholly tied time with incomparable sequence fails as undetermined. `derivedAt` equals injected `evaluationAt`; no system clock is read.
+For every successor, effective, observed and receipt times must not predate the parent; `correctionAt` must be at or after both parent and successor receipt and, when the parent is corrected, must not predate the parent's `correctionAt`. Comparable canonical integer source sequences strictly advance. A decreasing/equal comparable sequence fails even when timestamps advance. Missing or incomparable sequences provide no evidence and require at least one strictly advancing timestamp. Equal correction times are permitted with otherwise valid ordering.
+
+Graph `evaluationAt` is injected validation/derivation time, not immutable source-history ordering. Every receipt and correction must exist by that instant, and settlement `derivedAt` equals it. Historical observations' stored evaluation values are not required to be monotonic. No system clock is read.
+
+## Authoritative snapshot graph
+
+`validated-result-graph-v1` requires a caller-declared `snapshotRef`, `authoritative_snapshot` completeness, one canonical result scope, unique observations, complete parents, no cycles or forks, exact correction authority and valid ordering. It records roots, successor relationships, all immutable observations and the selected current-to-root lineage. A fork fails before either branch can settle; multiple unlinked roots quarantine the graph. The selected observation must be a current leaf whose lineage covers the snapshot.
+
+The guarantee is deliberately “fork-free within the validated authoritative snapshot,” not globally fork-free. A `partial_subset` is rejected. Without persistence this contract cannot prove that an authoritative caller omitted data; snapshot authority, storage completeness and governance remain external obligations.
 
 ## Versioned limits and input safety
 
-`result-contract-limits-v1` publishes: 16 participants, 16 placements, 16 score components per participant, 16 evidence references, 16 existing observations and correction-chain depth 16. The outer `untrusted-json-inspection-v2` limits apply first (128 containers, 512 properties/entries, 16,384 cumulative string code units, depth 8, 64 object keys, array length 17 and individual string length 1,024). Exact boundaries are accepted where the complete outer shape also fits; one-over fails closed at the earliest boundary.
+`result-contract-limits-v1` publishes: 16 participants, 16 placements, 16 score components per participant, 16 evidence references, 16 existing observations and correction-chain depth 16. Mapping evidence is capped at 16 records and 16 supporting references by `result-mapping-evidence-limits-v1`. Authoritative graphs are capped at four complete observations and depth four by `result-graph-limits-v1`. The outer `untrusted-json-inspection-v2` limits apply first.
 
 Inputs may not contain sparse arrays, repeated object aliases, accessors, hostile prototypes, unsupported values, unknown fields or credential-like names. Validation performs outer inspection before domain work and does not expose raw exceptions.
 

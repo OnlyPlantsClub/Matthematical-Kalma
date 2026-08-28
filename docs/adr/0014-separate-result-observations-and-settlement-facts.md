@@ -14,7 +14,11 @@ Use `strict-result-matrix/1`: one winner with complete unique placements, a unif
 
 Require a one-to-one evidence-backed mapping from every provider participant/role to every canonical participant/role in exact source/provider/event scope. Corrections remain within the exact source, provider, provider-event, schema, adapter, identity and participant-mapping authority boundary. Every unlinked contradictory canonical fact conflicts, including same-provider reports.
 
-Settlement derivation accepts complete immutable ancestors, not bare references. The chain must connect current-to-root without gaps, reordering, extras, duplicates, cycles or forks. Successor times cannot predate parents; comparable integer sequences strictly advance, and incomparable sequences require advancing time. Require caller-injected evaluation time.
+Parse one canonical observation directly without synthetic ancestry. Govern unlinked lifecycle progression separately from linked corrections. Provisional→official requires compatible facts and completion; lifecycle regressions and incompatible completion data conflict.
+
+Mappings require immutable resolved exact-source-key evidence binding the entire source/provider/canonical scope. A reference string alone is insufficient.
+
+Settlement derivation internally validates a complete caller-declared authoritative snapshot, not a selected ancestry. The graph must have unique references, complete parents, one scope, no cycles/forks, valid authority and ordering, and a selected current lineage covering the snapshot. Its claim is fork freedom within that snapshot only. Successor `correctionAt` cannot predate a corrected parent's correction time. Injected evaluation time establishes what is available for this validation, not historical ordering between evaluations.
 
 ## Consequences
 
@@ -24,6 +28,7 @@ Settlement derivation accepts complete immutable ancestors, not bare references.
 - Some apparently obvious outcomes remain unresolved until exact identity, lifecycle and governance prerequisites exist.
 - A future storage design must preserve all three records and their references append-only.
 - Replay proves deterministic interpretation of the supplied immutable observations, not provider truth or persistence.
+- Snapshot authority and completeness must ultimately be enforced by governed persistence; an in-memory declaration cannot prove the caller omitted nothing.
 
 ## Alternatives considered
 
