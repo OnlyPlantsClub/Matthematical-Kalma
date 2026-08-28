@@ -65,7 +65,7 @@ Modules expose typed commands, queries and domain events. A module cannot update
 
 ### Persistence and background work
 
-Cloudflare-managed D1 is the MVP system of record. Development, staging and production use separate databases and bindings. Foreign keys are enabled; constraints enforce ownership, uniqueness, ranges and simple state rules. R2 stores retained raw source artifacts, large immutable model/dataset bundles, generated exports and future private uploads; D1 retains owner, object key, checksum, type, size, source and lifecycle metadata. Compiled application assets are served by Workers Static Assets, not copied into R2.
+Cloudflare-managed D1 is the MVP system of record. Development, staging and production use separate databases and bindings. Foreign keys are enabled; constraints enforce ownership, uniqueness, ranges and simple state rules. Subject to `intelligence-retention/1`, R2 may store rights-permitted retained raw source artifacts, model/dataset bundles and generated exports; D1 stores only the corresponding rights-permitted owner, object key, checksum, type, size, source and lifecycle metadata. Future private uploads follow their separate user-owned policy. Compiled application assets are served by Workers Static Assets, not copied into R2.
 
 Cron Triggers initiate short periodic polling and maintenance in UTC. Queues buffer, batch and retry independent ingestion/normalisation messages with at-least-once delivery. Workflows coordinate durable multi-step model, export, settlement-reconciliation and retention processes. Jobs use leases, checkpoints, idempotency keys, bounded retries and observable run records. They call the same application services and cannot bypass audit or ownership rules.
 
@@ -127,7 +127,7 @@ Ledger invariants:
 | Record | Definition / relationships | Owner | Lifecycle |
 | --- | --- | --- | --- |
 | `data_sources` | Provider/manual identity, terms/version and reliability class | Shared | configured → active → retired |
-| `source_artifacts` | Source locator, retrieval, SHA-256, schema version and optional redacted payload/blob reference | System | immutable; bytes may expire under policy, metadata/hash remain |
+| `source_artifacts` | Rights-permitted source locator, retrieval metadata, SHA-256, schema version and optional redacted payload/blob reference | System | immutable while permitted; bytes, metadata, locator and hash follow the active rights disposition and may all expire/delete |
 | `dataset_versions` | Source-artifact/transform manifest, data cutoff, feature schema and content hash | Shared | building → sealed → deprecated |
 | `model_versions` | Algorithm/config/code ID, scope, training dataset and evaluation state | Shared | candidate → approved → retired; approved version immutable |
 | `model_runs` | Model/dataset/code versions, parameters, seed, input hash, timestamps and status | System | queued → running → succeeded/failed/cancelled |
@@ -301,7 +301,7 @@ Errors have stable codes and request IDs. Commands include schema version, idemp
 - Ordered immutable SQL migrations live in source; never edit an applied migration.
 - Prefer additive expand/contract. Destructive changes need backup/export verification, data migration, forward-fix plan and approval.
 - The approved Worker and D1 names are `matthematical-kalma-dev`, `matthematical-kalma-staging` and `matthematical-kalma-production`; each uses the `DB` binding and a separate migration history. Migrations are versioned SQL in GitHub, applied by database name in a gated deployment job, and production verifies foreign keys, schema readability and domain reconciliation. Full file-level integrity checks use an approved export procedure because D1 rejects `PRAGMA integrity_check` through its SQL authorizer.
-- Before a production schema change, record a D1 Time Travel bookmark; use periodic D1 export to private R2 when retention beyond the platform recovery window is required.
+- Before a production schema change, record a D1 Time Travel bookmark; use periodic D1 export to private R2 only when retention beyond the platform recovery window is required and every included provider-derived class is expressly permitted for that export and duration.
 - Backfills are resumable/idempotent with progress and reconciliation.
 - Seed only deterministic reference/test data in local/test. Production starts with genuine empty user state and has no demo import path.
 
