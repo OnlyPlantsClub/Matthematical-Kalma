@@ -1,6 +1,6 @@
 # ADR-0015: Permission-gated provider rights and intelligence retention
 
-Status: accepted; implementation pending independent review (2026-08-29)
+Status: accepted, independently reviewed and integrated; implementation not started (2026-08-29)
 
 ## Context
 

@@ -1,6 +1,6 @@
 # ADR-0016: Authenticated durable intelligence records and rehydration
 
-Status: accepted; implementation pending independent review (2026-08-29)
+Status: accepted, independently reviewed and integrated; implementation not started (2026-08-29)
 
 ## Context
 

@@ -1,12 +1,12 @@
 # Intelligence engine roadmap
 
-Status: proposed; TASK-17 documentation decisions approved, implementation still gated (2026-08-29)
+Status: proposed; TASK-17 documentation decisions approved, independently reviewed and integrated; implementation remains separate (2026-08-29)
 
 Each phase produces paper-only, replayable evidence. A later phase does not begin merely because code exists; its predecessor’s exit gate must pass. Infrastructure/deployment and existing migrations remain outside this roadmap.
 
 ## Phase 0 — Governance and fixtures
 
-**Status:** TASK-17 approved the provider-neutral rights, retention, product/privacy and durable-rehydration architecture. Independent documentation and architecture review is required before the approved persistence slice begins.
+**Status:** TASK-17 approved the provider-neutral rights, retention, product/privacy and durable-rehydration architecture. Independent documentation and architecture review passed without findings. Persistence remains a separate implementation slice and is not delivered by this integration.
 
 - Approve terminology, provenance minimum, model/policy lifecycle, source review checklist and sport plug-in contract.
 - Create versioned synthetic/golden fixtures for two-way, three-way, line, push/void, commission, correction and stale/ambiguous cases.
