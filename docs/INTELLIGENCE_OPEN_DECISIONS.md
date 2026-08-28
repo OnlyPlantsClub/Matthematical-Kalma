@@ -1,8 +1,19 @@
 # Intelligence engine unresolved decisions
 
-Status: unresolved proposals and provider-dependent assumptions (2026-08-28)
+Status: unresolved proposals and provider-dependent assumptions after TASK-17 approvals (2026-08-29)
 
 Nothing in this register authorises data acquisition, real-money use or provider integration.
+
+## Resolved by TASK-17
+
+- **MVP boundary:** private to two named adults aged 18 or older; analysis and paper betting only. No execution, bookmaker credentials, deposits, withdrawals, affiliate links, public registration or guaranteed/risk-free language.
+- **Source strategy:** synthetic and evidence-backed manual fixtures are approved. The Odds API is only a written-rights clarification candidate and Sportradar only an enterprise comparator. Neither is selected, purchased or activated.
+- **Acquisition prohibition:** bookmaker consumer websites/accounts are prohibited sources without bespoke written permission for the intended automated use.
+- **Retention architecture:** ADR-0015 adopts `intelligence-retention/1`, mandatory provider rights schedules/dispositions, zero default raw-payload retention and shortest-applicable provisional maximums.
+- **Privacy separation:** shared intelligence and user-owned private records use separate ownership/storage domains; user betting/financial records do not enter shared datasets or training by default.
+- **Durable trust:** ADR-0016 adopts RFC 8785 canonical JSON, SHA-256, HMAC-SHA-256, environment-separated secret bindings and complete domain revalidation. Persisted objects never regain runtime capability authority directly.
+- **Backup/exit:** no long-lived provider-derived export without permission; deletion disposition survives outside restorable state; every restore requires reconciliation/deletion sweep before service.
+- **Expansion gate:** public/paid access, affiliates, execution, bookmaker integration or material expansion requires Australian/Western Australian legal review. No legal or provider purchase is authorised.
 
 ## Product, legal and safety
 
@@ -19,8 +30,8 @@ Nothing in this register authorises data acquisition, real-money use or provider
 | ID | Decision needed | Provider-dependent evidence |
 | --- | --- | --- |
 | O-10 | Price/event/result provider(s) | Licensed Australian operator coverage, exchanges, sports, market depth, history, timestamp provenance, corrections, availability and cost. |
-| O-11 | Permitted acquisition methods | Written terms/licence for API, files or manual entry; no assumption that HTML scraping, automation or redistribution is allowed. |
-| O-12 | Retention and reproducibility | Whether raw payloads may be retained, duration, audit use, derived-data rights, deletion and post-termination rights. |
+| O-11 | Provider-specific permitted acquisition methods | Architecture prohibits bookmaker consumer-site/account sourcing without bespoke written permission. Each live API/file source still needs written provider-specific rights. |
+| O-12 | Provider-specific retention and reproducibility rights | `intelligence-retention/1` is fixed; each provider must still confirm class-by-class storage, audit, derivatives, deletion, backup and post-termination rights. |
 | O-13 | Timestamp semantics | Whether timestamps are provider observation, upstream creation or delivery; clock precision/skew and historical point-in-time guarantees. |
 | O-14 | Limits/liquidity/commission | Availability and reliability by operator/account/market; absent fields make arbitrage non-actionable. |
 | O-15 | Official sport features/results | Authoritative sources, licences, correction cadence, entity identifiers and publication times for AFL, MMA and boxing. |
@@ -44,7 +55,7 @@ Nothing in this register authorises data acquisition, real-money use or provider
 - **Ordering:** comparable integer source sequence precedes observation time, receipt time and opaque reference; sequence/time disagreement is retained in the decision.
 - **Resolved verification boundary:** when retained payload bytes are supplied, compare them with the supplied canonical SHA-256 using Web Crypto under a 1 MiB pre-hash limit; strings explicitly mean UTF-8, object serialization is undefined, and missing bytes are `not_verifiable`.
 
-Still open: provider trust in the supplied digest and timestamps; how providers/adapters produce the canonical payload bytes/hash; whether and how long raw bytes may be retained; locator durability; the production retrieval/verification workflow; persistence constraints; provider/result sources; sport-specific event revision tolerances; quarantine operations; and production-scale graph/payload limits.
+Still open: provider trust in the supplied digest and timestamps; how providers/adapters produce the canonical payload bytes/hash; provider-specific permitted retention and locator durability; the implementation of the approved authenticated retrieval/rehydration workflow; persistence schemas and constraints; provider/result sources; sport-specific event revision tolerances; quarantine operations; and production-scale graph/payload limits.
 
 ### Resolved for the TASK-21 implementation candidate
 
@@ -55,7 +66,7 @@ Still open: provider trust in the supplied digest and timestamps; how providers/
 - **Result time:** strict UTC milliseconds and injected evaluation/derivation time are mandatory; equal adjacent instants are accepted, while ambiguous lineage is not inferred from time or sequence.
 - **Candidate limits:** `result-contract-limits-v1` caps participants, placements, score components, evidence, existing observations and correction depth at 16, inside the existing untrusted inspection envelope.
 
-Still open for TASK-21: independent review and integration; authoritative result-provider governance; sport/ruleset-specific void, push, dead-heat and abandonment policy; whether provisional results can ever settle; correction approval authority; comparable provider-sequence semantics; persistence constraints and operational quarantine workflow.
+Still open after TASK-21 integration: authoritative result-provider governance; sport/ruleset-specific void, push, dead-heat and abandonment policy; whether provisional results can ever settle; correction approval authority; comparable provider-sequence semantics; persistence constraints and operational quarantine workflow.
 
 Second-review candidate clarification: mapping references now require immutable resolved exact-key evidence, lifecycle progression is versioned, and settlement validates a declared authoritative observation snapshot. Still open are who may attest snapshot authority, how persistence prevents omissions, evidence expiry/governance beyond fail-closed status, and durable snapshot identifiers. The in-memory contract guarantees fork freedom only within the supplied validated authoritative snapshot.
 

@@ -16,7 +16,11 @@ Accepted ADRs constrain implementation until explicitly superseded.
 - [ADR-0012: Immutable model and policy governance](0012-model-and-policy-governance.md)
 - [ADR-0013: Exact identity resolution and append-only observation corrections](0013-exact-identity-and-append-only-observation-corrections.md)
 - [ADR-0014: Separate result observations and settlement facts](0014-separate-result-observations-and-settlement-facts.md)
+- [ADR-0015: Permission-gated provider rights and intelligence retention](0015-provider-rights-and-intelligence-retention.md)
+- [ADR-0016: Authenticated durable intelligence records and rehydration](0016-authenticated-intelligence-record-rehydration.md)
 
 Operational companion: [Cloudflare foundation and admission runbook](../CLOUDFLARE_FOUNDATION.md).
 
 Intelligence companion: [Intelligence engine architecture](../INTELLIGENCE_ARCHITECTURE.md).
+
+Data-rights and durable-trust companion: [Intelligence data rights, retention and durable trust](../INTELLIGENCE_DATA_RIGHTS_RETENTION_AND_TRUST.md).

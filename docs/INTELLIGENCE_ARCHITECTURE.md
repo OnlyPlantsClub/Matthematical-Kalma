@@ -1,6 +1,6 @@
 # Intelligence engine architecture
 
-Status: proposed architecture; documentation only (2026-08-28)
+Status: proposed architecture with approved TASK-17 rights/retention/trust boundaries; documentation only (2026-08-29)
 
 This document defines the intelligence boundary for Matthematical Kalma. It refines, but does not replace, the accepted platform boundaries in [ARCHITECTURE.md](ARCHITECTURE.md). No model, source, schema, API, job, staking rule, or provider is implemented or approved by this document. Statements labelled **Decision** are architectural constraints accepted by the accompanying ADRs. Statements labelled **Proposal** require implementation evidence or product approval.
 
@@ -17,6 +17,8 @@ The engine independently estimates pre-match outcome probabilities, compares the
 - Stale, incomplete, ambiguous, suspended, post-start or materially corrected inputs fail closed to `pass`/`ineligible`.
 
 Out of scope: live/in-play operation, automated wager placement, bookmaker account integration, production schemas/APIs/jobs, infrastructure, authentication, deployment, existing migrations, paid-provider selection and real-money bankroll operation.
+
+TASK-17 additionally fixes the MVP audience at two named adults aged 18 or older and excludes public registration, affiliate links, deposits, withdrawals and guaranteed/risk-free language. Public or paid access, affiliates, execution, bookmaker integration or material expansion requires Australian and Western Australian legal review. This is a product gate, not a legal conclusion.
 
 ## 2. Capability map
 
@@ -142,6 +144,12 @@ interface SourceAdapter {
 ```
 
 Adapters do not resolve ambiguous identities, de-vig prices, generate features, forecast, recommend or settle. They emit candidates plus provenance. Manual/sample import implements the same contract. Raw bytes may be retained only when contractual/privacy policy permits; otherwise retain the permitted canonical fields, locator where one remains valid, canonical payload hash, adapter/terms versions and an explicit replay mode/limitation. A hash-only record supports later verification of supplied bytes but does not reconstruct them and must not be described as complete replay.
+
+The approved provider strategy uses only synthetic and evidence-backed manual fixtures now. The Odds API is a written-rights clarification candidate and Sportradar an enterprise comparator; neither is selected or activated. Bookmaker consumer websites/accounts are prohibited sources without bespoke written automated-use permission. All provider-derived records require `intelligence-retention/1` rights schedules and fail-closed dispositions; see [the data-rights and durable-trust companion](INTELLIGENCE_DATA_RIGHTS_RETENTION_AND_TRUST.md) and ADR-0015.
+
+### Durable persistence trust boundary
+
+Module-private capabilities remain current-runtime authority only. Approved future persistence uses `mk-intelligence-record-jcs/1`: RFC 8785 canonical JSON, SHA-256 content identity, HMAC-SHA-256 with environment-separated Cloudflare-bound secrets, append-only transactional audit and full domain revalidation. A stored object, D1 row or hash never regains authority directly. Only a successful current canonical validator may issue a new runtime capability after authenticated rehydration. See ADR-0016.
 
 ## 6. Mathematical framework
 

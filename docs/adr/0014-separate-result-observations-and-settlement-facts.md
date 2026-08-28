@@ -1,6 +1,6 @@
 # ADR-0014: Separate result observations from settlement facts
 
-Status: proposed; independent-review corrections in progress (2026-08-28)
+Status: accepted and integrated on canonical main `f9ea61f` (2026-08-29)
 
 ## Context
 

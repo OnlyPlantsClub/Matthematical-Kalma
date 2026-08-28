@@ -1,6 +1,6 @@
 # Result observations and settlement facts
 
-Status: TASK-21 implementation candidate; incomplete until independent review and integration (2026-08-28)
+Status: implemented, independently reviewed and integrated on canonical main `f9ea61f` (2026-08-29)
 
 ## Domain separation and public API
 
@@ -96,3 +96,11 @@ The contract supports AFL win/loss/draw, MMA and boxing win/loss/draw/no-contest
 ## Explicit MVP exclusions and open decisions
 
 This slice includes no provider integration, scraping, persistence, D1 migration, route, schedule, automated bet settlement, financial mutation, recommendation, UI or deployment change. Open governance decisions include authoritative result providers, conflict adjudication, sport/ruleset-specific void/push interpretation, partial placements/dead heats, event abandonment thresholds, provider sequence comparison, correction approval, and when provisional facts might become eligible. See the open-decisions register.
+
+## Approved persistence trust boundary after TASK-17
+
+The runtime capability limitation remains unchanged, but the durable design is now decided. ADR-0015 requires `intelligence-retention/1` rights schedules/dispositions for every provider-derived result, correction, mapping record and settlement derivative. ADR-0016 requires `mk-intelligence-record-jcs/1` authenticated envelopes and complete current-domain revalidation.
+
+Persistence will not make a serialized result observation or graph authoritative. Rehydration must verify the rights disposition, canonical bytes, SHA-256, HMAC, environment/key, complete parent/correction graph, current-head/rollback constraints and current result contracts. Only successful canonical validation issues a new current-runtime observation or graph capability. Missing evidence, expired rights, tampering, unsupported versions and invalid graphs quarantine and remain settlement-ineligible.
+
+Schemas, repositories, migrations and production operations remain unimplemented. The next approved implementation slice is limited to synthetic and explicitly user-owned manual fixtures after independent documentation and architecture review.

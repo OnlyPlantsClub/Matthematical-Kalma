@@ -1,10 +1,12 @@
 # Intelligence engine roadmap
 
-Status: proposed; sequencing and exit gates, not an implementation commitment (2026-08-28)
+Status: proposed; TASK-17 documentation decisions approved, implementation still gated (2026-08-29)
 
 Each phase produces paper-only, replayable evidence. A later phase does not begin merely because code exists; its predecessor’s exit gate must pass. Infrastructure/deployment and existing migrations remain outside this roadmap.
 
 ## Phase 0 — Governance and fixtures
+
+**Status:** TASK-17 approved the provider-neutral rights, retention, product/privacy and durable-rehydration architecture. Independent documentation and architecture review is required before the approved persistence slice begins.
 
 - Approve terminology, provenance minimum, model/policy lifecycle, source review checklist and sport plug-in contract.
 - Create versioned synthetic/golden fixtures for two-way, three-way, line, push/void, commission, correction and stale/ambiguous cases.
@@ -30,6 +32,7 @@ Exit: passed — boundary, invariant, precision and replay tests pass; independe
 - Implement the adapter contract for approved manual/file fixtures only.
 - Normalise source, event, participant, market, outcome, quote and result candidates; quarantine ambiguity.
 - Build append-only snapshots, movement and provenance inspection. No automated retrieval.
+- After independent review of ADR-0015/0016, implement provider-neutral persistence only for synthetic and explicitly user-owned manual fixtures. Every record requires a rights disposition; authenticated rehydration must issue a new runtime capability through current validators.
 
 Exit: two independent imports deduplicate deterministically; correction, staleness and full-lineage replays pass.
 
@@ -84,6 +87,8 @@ Exit: complete-outcome, equivalence and time-overlap tests pass; historical simu
 - Implement only approved APIs/files behind the existing adapter contract; begin shadow ingestion with quality monitoring.
 
 Exit: signed provider/product/legal review; data processing/retention approval; adapter conformance, reconciliation, rate/backoff, outage and exit tests; explicit production approval in its own workstream.
+
+TASK-17 does not satisfy this exit gate. The Odds API and Sportradar remain unselected candidates; no commercial terms, legal conclusion or live ingestion is approved.
 
 ## Continuous gates
 

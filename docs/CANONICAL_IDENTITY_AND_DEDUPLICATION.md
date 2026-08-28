@@ -61,4 +61,12 @@ Successes, decisions, errors, metadata, arrays, parents and policies are recursi
 
 Normalized market observations still own price/state/freshness validation and deterministic odds owns arithmetic. This slice supplies the missing catalogue mapping, duplicate/correction decision and optional upstream-byte integrity check before or around that normalization flow. It does not change the existing `market-observation-v1` or odds APIs.
 
-Deferred under TASK-04: provider selection and live acquisition, canonical display-name/history models, sport-specific event revision rules beyond exact context, results and settlement ingestion, persistence/unique constraints/transactions, long-chain archival traversal, retention/licensing decisions, APIs and operational reconciliation.
+Deferred under TASK-04: provider selection and live acquisition, canonical display-name/history models, sport-specific event revision rules beyond exact context, results and settlement ingestion, persistence/unique constraints/transactions, long-chain archival traversal, APIs and operational reconciliation.
+
+## Approved durable boundary after TASK-17
+
+ADR-0015 adopts `intelligence-retention/1`: zero default raw-provider-payload retention after successful validation, mandatory provider rights schedules/dispositions and no assumed survival for hashes, normalized facts, derivatives, datasets or model parameters.
+
+ADR-0016 adopts `mk-intelligence-record-jcs/1`: RFC 8785 canonical JSON, SHA-256, HMAC-SHA-256 with environment-separated secret bindings and full current domain revalidation. Serialized identity and graph objects remain untrusted. They can produce a new runtime capability only when the approved rehydration boundary verifies rights, envelope, hash/MAC, complete lineage/current-head constraints and the current canonical validator succeeds.
+
+Canonical payload production details, conformance vectors, schemas, repositories and operations remain implementation work. Provider truth, live sources and provider-specific rights remain unresolved.
