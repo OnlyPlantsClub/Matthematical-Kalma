@@ -1,6 +1,6 @@
 # ADR-0014: Separate result observations from settlement facts
 
-Status: proposed; TASK-21 requires independent review and integration (2026-08-28)
+Status: proposed; independent-review corrections in progress (2026-08-28)
 
 ## Context
 
@@ -10,7 +10,11 @@ Provider result reports, canonical sporting truth and sportsbook settlement inte
 
 Adopt separate versioned, immutable source-result, canonical-result and settlement-fact contracts. Canonical results require an exact reviewed event and participant/role set. Corrections append one explicitly linked successor. Settlement facts derive only from official, corrected, abandoned or cancelled canonical observations under a versioned eligibility policy; provisional and unresolved observations fail closed.
 
-Use a participant-level sport-neutral vocabulary and optional placement instead of a binary winner field. Keep draw, no contest, push and void distinct. Treat provider disagreement as conflict unless a future governed policy supplies authority. Require caller-injected evaluation time and exact source/correction lineage.
+Use `strict-result-matrix/1`: one winner with complete unique placements, a uniform draw with one shared draw placement, or a uniform placement-free void/push/no-contest. Dead heats and partial placements fail closed. Cancelled/abandoned results are uniform voids.
+
+Require a one-to-one evidence-backed mapping from every provider participant/role to every canonical participant/role in exact source/provider/event scope. Corrections remain within the exact source, provider, provider-event, schema, adapter, identity and participant-mapping authority boundary. Every unlinked contradictory canonical fact conflicts, including same-provider reports.
+
+Settlement derivation accepts complete immutable ancestors, not bare references. The chain must connect current-to-root without gaps, reordering, extras, duplicates, cycles or forks. Successor times cannot predate parents; comparable integer sequences strictly advance, and incomparable sequences require advancing time. Require caller-injected evaluation time.
 
 ## Consequences
 
@@ -19,6 +23,7 @@ Use a participant-level sport-neutral vocabulary and optional placement instead 
 - Downstream bet settlement can consume facts without result ingestion owning financial rules.
 - Some apparently obvious outcomes remain unresolved until exact identity, lifecycle and governance prerequisites exist.
 - A future storage design must preserve all three records and their references append-only.
+- Replay proves deterministic interpretation of the supplied immutable observations, not provider truth or persistence.
 
 ## Alternatives considered
 

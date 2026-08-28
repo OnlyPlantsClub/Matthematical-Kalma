@@ -7,8 +7,9 @@ Status: TASK-21 implementation candidate; incomplete until independent review an
 `result-observation.ts` deliberately exposes three records rather than one mutable result:
 
 - `normalizeSourceResultObservation` validates `source-result-observation-v1`: exactly what a provider reported, `source-envelope-v1`, payload hash/replay declaration, provider event/participant/role references and optional source sequence. It survives unresolved canonical identity and cannot produce a settlement fact itself.
-- `normalizeCanonicalResultObservation` validates `canonical-result-observation-v1`: one exact `canonical-identity-v2` event and complete participant/role set, normalized lifecycle, sport-neutral outcomes/placements/scores, immutable provenance and explicit correction parent.
-- `deriveSettlementFact` validates and emits `settlement-fact-v1`: the immutable, versioned interpretation of one eligible accepted canonical observation under `accepted-terminal-result/1`, retaining the source observation and exact correction chain.
+- `normalizeCanonicalResultObservation` validates `canonical-result-observation-v1`: one exact `canonical-identity-v2` event, a one-to-one evidence-backed source-participant mapping, normalized lifecycle, sport-neutral outcomes/placements/scores, immutable provenance and explicit correction parent.
+- `validateResultCorrectionLineage` validates a bounded current-to-root collection of complete immutable observations and returns `validated-result-lineage-v1`.
+- `deriveSettlementFact` now receives complete `ancestors`, validates them, and emits `settlement-fact-v1` retaining the exact observations and participant mappings. Bare correction-reference lists are not accepted.
 - `classifyResultObservationHistory` classifies an append-only candidate as new, exact duplicate, unchanged lifecycle transition, correction, reversion, conflict or already superseded. Structural graph errors remain typed failures.
 
 All functions accept `unknown`, inspect it with `untrusted-json-inspection-v2`, reject unknown/credential-bearing fields, and return recursively frozen success or failure trees. They do not read the clock, random state, network or storage.
@@ -26,7 +27,15 @@ All functions accept `unknown`, inspect it with `untrusted-json-inspection-v2`, 
 | `abandoned` | required | every participant `void` | forbidden | yes, policy-level void fact |
 | `cancelled` | optional | every participant `void` | forbidden | yes, policy-level void fact |
 
-Competitive terminal results require explicit winner(s), draw, or a uniform bounded special outcome. Missing data never implies a winner. Winner and draw cannot coexist. A winner's supplied placement must be 1; a loser cannot be placed first. Same placement is allowed for ties.
+`strict-result-matrix/1` validates the participant collection as one fact:
+
+- A decisive result has exactly one winner at unique placement 1, every other participant is a loser, and all placements are present, unique and contiguous from 1.
+- A draw declares every participant `draw` at the same explicit canonical draw placement. It cannot mix with any other outcome.
+- A special result declares every participant the same one of `void`, `push` or `no_contest`, with no placements.
+- Pending states are uniformly `unresolved` without placements or scores. `unresolved` cannot mix with settlement-eligible outcomes.
+- Cancelled and abandoned states are uniformly `void` without placements.
+
+Multiple winners, mixed outcomes, partial placements, shared decisive placements, dead heats and ambiguous multi-participant interpretations fail closed. Ties/dead heats other than the uniform draw representation are deferred until a governed ruleset policy exists.
 
 ## Settlement vocabulary
 
@@ -36,15 +45,15 @@ No source result, canonical result, or settlement fact permits stake, payout, pr
 
 ## Corrections and conflicts
 
-Corrections append a new immutable `corrected` observation with `correctsObservationRef` and `correctionAt`; they never overwrite a predecessor. The bounded graph validator rejects missing parents, forks, cycles, cross-event links, unchanged corrections and excessive depth. A changed result matching an earlier ancestor is explicitly classified `reversion` rather than hidden as an ordinary correction.
+Corrections append a new immutable `corrected` observation with `correctsObservationRef` and `correctionAt`; they never overwrite a predecessor. Correction authority requires the same sport, competition, event, identity-contract version, source, provider, provider event, source schema, adapter and provider-participant mapping. Cross-source/provider corrections conflict. The bounded graph validator rejects missing parents, forks, cycles, cross-event links, unchanged corrections and excessive depth. A changed result matching an earlier ancestor is explicitly classified `reversion`.
 
-Exact replay of the same immutable observation is `exact_duplicate`. A provisional-to-official change with unchanged participant facts is `unchanged_transition`. An unlinked same fact with different provenance is a conflict, as are disagreeing providers for the same canonical scope. The policy never selects a provider by recency, popularity or array order. Future governance may resolve quarantined conflicts outside this contract.
+Exact replay of the same immutable observation is `exact_duplicate`. The same facts with new provenance or lifecycle are `unchanged_transition`. Every unlinked contradictory fact in the same canonical result scope is a conflict, including same-provider winner reversals. The policy never selects a provider by recency, popularity, majority or array order.
 
 ## Identity and provenance
 
-Canonical normalization requires exact equality for entity-tagged event, sport and competition IDs; canonical identity contract version; event start; and the complete participant ID, role ID and role-semantic set. Missing, additional, ambiguous or cross-event identities fail closed. Canonical source ID, provider reference, provider event reference, payload hash, source observation reference, observation/effective/receipt timestamps and sequence must exactly match the source observation.
+Canonical normalization requires exact equality for entity-tagged event, sport and competition IDs; canonical identity contract version; event start; and the complete participant ID, role ID and role-semantic set. Each provider participant and role is uniquely mapped to one canonical participant, role ID and semantic role with an identity-evidence reference and the exact source/provider/event scope. Every source and canonical participant appears exactly once; unrelated, missing, duplicate, ambiguous and cross-event mappings fail closed. Source schema and adapter lineage are retained with the prior provenance fields.
 
-Settlement facts retain both the exact canonical and source observation references, correction chain, evidence references and accepted event identity. Source observations remain valid evidence even if canonical normalization or fact derivation fails.
+Settlement facts retain the exact validated lineage observations, mapping records, canonical/source references, evidence and event identity. This proves only deterministic interpretation of supplied validated observations; it does not prove provider truth, payload availability or persistence.
 
 ## Time and ordering
 
@@ -52,7 +61,7 @@ All instants are strict UTC ISO-8601 milliseconds. Offset-bearing, missing-milli
 
 `eventStartAt <= completedAt <= effectiveAt <= observedAt <= receivedAt <= evaluationAt`
 
-Equal adjacent timestamps are allowed. For corrections, `observedAt <= correctionAt <= evaluationAt`. `derivedAt` must equal the caller-injected `evaluationAt`; no system clock is read. Optional source sequence is preserved as an opaque ordering reference. Result history requires explicit correction links; timestamp or sequence ties never invent a parent, and ambiguity fails closed.
+For every successor, effective, observed and receipt times must not predate the parent; `correctionAt` must be at or after both parent and successor receipt and not after evaluation. Comparable canonical integer source sequences must strictly advance. A decreasing/equal comparable sequence fails even when timestamps advance. Missing or incomparable sequences provide no evidence and therefore require at least one strictly advancing timestamp. Equal source timestamps are accepted only with a strictly advancing comparable sequence (or a later correction time); wholly tied time with incomparable sequence fails as undetermined. `derivedAt` equals injected `evaluationAt`; no system clock is read.
 
 ## Versioned limits and input safety
 
@@ -64,7 +73,7 @@ Inputs may not contain sparse arrays, repeated object aliases, accessors, hostil
 
 Normalized outputs are canonicalized by participant ID, score-component ID and evidence reference so permutations with the same canonical identity replay identically. Provider participant ordering remains preserved at the source layer because it is reported provenance. SHA-256 values are validated as canonical lowercase digests; byte verification remains the existing payload-hash boundary. Replay claims cover pure deterministic validation and derivation from supplied records, not source truth, locator durability or persistence.
 
-The contract supports AFL win/loss/draw, MMA and boxing win/loss/draw/no-contest, and multi-participant placements without binary assumptions. Sport-specific rules and sportsbook settlement interpretation remain plug-in/policy work.
+The contract supports AFL win/loss/draw, MMA and boxing win/loss/draw/no-contest, and unambiguous multi-participant unique placements without binary assumptions. Dead heats, partial placement and sport-specific settlement interpretation remain governed policy work.
 
 ## Explicit MVP exclusions and open decisions
 
