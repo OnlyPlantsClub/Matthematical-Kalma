@@ -1,6 +1,6 @@
 export const UNTRUSTED_INSPECTION_LIMITS = Object.freeze({
-  version: 'untrusted-json-inspection-v1',
-  maxVisitedValues: 512,
+  version: 'untrusted-json-inspection-v2',
+  maxContainerNodes: 128,
   maxPropertiesAndEntries: 512,
   maxCumulativeStringCodeUnits: 16_384,
   maxDepth: 8,
@@ -22,7 +22,7 @@ export type InspectionErrorCode =
   | 'market_limit_exceeded';
 
 export interface InspectionUsage {
-  readonly visitedValues: number;
+  readonly containerNodes: number;
   readonly propertiesAndEntries: number;
   readonly cumulativeStringCodeUnits: number;
 }
@@ -53,7 +53,7 @@ const CREDENTIAL_FIELD_NAMES = new Set([
 ]);
 
 interface MutableInspectionBudget {
-  visitedValues: number;
+  containerNodes: number;
   propertiesAndEntries: number;
   cumulativeStringCodeUnits: number;
   seenReferences: WeakSet<object>;
@@ -67,7 +67,7 @@ function deepFreeze<T>(value: T): T {
 
 function usage(budget: MutableInspectionBudget): InspectionUsage {
   return Object.freeze({
-    visitedValues: budget.visitedValues,
+    containerNodes: budget.containerNodes,
     propertiesAndEntries: budget.propertiesAndEntries,
     cumulativeStringCodeUnits: budget.cumulativeStringCodeUnits,
   });
@@ -109,10 +109,6 @@ export function isCredentialFieldName(fieldName: string): boolean {
 }
 
 function inspectValue(input: unknown, path: string, depth: number, budget: MutableInspectionBudget): InspectionResult {
-  budget.visitedValues += 1;
-  if (budget.visitedValues > UNTRUSTED_INSPECTION_LIMITS.maxVisitedValues) {
-    return aggregateLimit(budget, path, 'maxVisitedValues', budget.visitedValues);
-  }
   if (input === null || typeof input === 'boolean') {
     return Object.freeze({ ok: true, value: Object.freeze({ data: input, usage: usage(budget) }) });
   }
@@ -136,31 +132,55 @@ function inspectValue(input: unknown, path: string, depth: number, budget: Mutab
     return failure('invalid_input', 'Input exceeds the maximum JSON-compatible nesting depth.', path, budget);
   }
   budget.seenReferences.add(input);
+  budget.containerNodes += 1;
+  if (budget.containerNodes > UNTRUSTED_INSPECTION_LIMITS.maxContainerNodes) {
+    return aggregateLimit(budget, path, 'maxContainerNodes', budget.containerNodes);
+  }
+
+  const isArray = Array.isArray(input);
+  const keys = Reflect.ownKeys(input);
+  const localLimit = isArray ? UNTRUSTED_INSPECTION_LIMITS.maxArrayLength + 1 : UNTRUSTED_INSPECTION_LIMITS.maxObjectKeys;
+  const countedKeys = isArray ? Math.max(0, keys.length - 1) : keys.length;
+  if (keys.length > localLimit) {
+    const limitName = isArray ? 'maxArrayLength' : 'maxObjectKeys';
+    const actual = isArray ? countedKeys : keys.length;
+    return aggregateLimit(budget, path, limitName, actual);
+  }
+  const aggregateProperties = budget.propertiesAndEntries + countedKeys;
+  if (aggregateProperties > UNTRUSTED_INSPECTION_LIMITS.maxPropertiesAndEntries) {
+    budget.propertiesAndEntries = aggregateProperties;
+    return aggregateLimit(budget, path, 'maxPropertiesAndEntries', aggregateProperties);
+  }
+  budget.propertiesAndEntries = aggregateProperties;
 
   const prototype = Object.getPrototypeOf(input);
-  if (Array.isArray(input)) {
+  if (isArray) {
     if (prototype !== Array.prototype) return failure('invalid_input', 'Arrays must use the standard Array prototype.', path, budget);
-    if (input.length > UNTRUSTED_INSPECTION_LIMITS.maxArrayLength) {
-      return failure('market_limit_exceeded', `An input array must not exceed ${UNTRUSTED_INSPECTION_LIMITS.maxArrayLength} entries.`, path, budget);
-    }
-    const descriptors = Object.getOwnPropertyDescriptors(input);
-    const keys = Reflect.ownKeys(descriptors);
     if (keys.some((key) => typeof key === 'symbol')) return failure('invalid_input', 'Symbol keys are not supported.', path, budget);
-    const unexpected = keys.filter((key) => key !== 'length' && !/^(?:0|[1-9]\d*)$/.test(String(key)));
-    if (unexpected.length > 0) {
-      const field = String(unexpected[0]);
+    if (!keys.includes('length')) return failure('invalid_input', 'Arrays require an own length property.', `${path}.length`, budget);
+    const entryKeys = keys.filter((key) => key !== 'length');
+    const unexpected = entryKeys.find((key) => !/^(?:0|[1-9]\d*)$/.test(String(key)));
+    if (unexpected !== undefined) {
+      const field = String(unexpected);
       return failure(isCredentialFieldName(field) ? 'credential_field' : 'unknown_field',
         isCredentialFieldName(field) ? 'Credential-bearing fields are forbidden at this boundary.' : 'Arrays must not contain named properties.',
         `${path}.${field}`, budget);
     }
-    budget.propertiesAndEntries += input.length;
-    if (budget.propertiesAndEntries > UNTRUSTED_INSPECTION_LIMITS.maxPropertiesAndEntries) {
-      return aggregateLimit(budget, path, 'maxPropertiesAndEntries', budget.propertiesAndEntries);
+    const lengthDescriptor = Object.getOwnPropertyDescriptor(input, 'length');
+    if (!lengthDescriptor || !Object.hasOwn(lengthDescriptor, 'value') || !Number.isSafeInteger(lengthDescriptor.value)
+      || lengthDescriptor.value < 0 || lengthDescriptor.value > UNTRUSTED_INSPECTION_LIMITS.maxArrayLength) {
+      return failure('invalid_input', 'Array length must be a bounded data property.', `${path}.length`, budget);
     }
+    const declaredLength = lengthDescriptor.value;
+    const entrySet = new Set(entryKeys);
+    for (let index = 0; index < declaredLength; index += 1) {
+      if (!entrySet.has(String(index))) return failure('invalid_input', 'Arrays must be dense data-only arrays.', `${path}[${index}]`, budget, undefined, index);
+    }
+    if (entryKeys.length !== declaredLength) return failure('invalid_input', 'Arrays must be dense data-only arrays.', path, budget);
     const clone: JsonValue[] = [];
-    for (let index = 0; index < input.length; index += 1) {
-      const descriptor = descriptors[String(index)];
-      if (!descriptor || !Object.hasOwn(descriptor, 'value')) return failure('invalid_input', 'Arrays must be dense data-only arrays.', `${path}[${index}]`, budget, undefined, index);
+    for (let index = 0; index < declaredLength; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(input, String(index));
+      if (!descriptor || !Object.hasOwn(descriptor, 'value')) return failure('invalid_input', 'Arrays must contain only data entries.', `${path}[${index}]`, budget, undefined, index);
       const inspected = inspectValue(descriptor.value, `${path}[${index}]`, depth + 1, budget);
       if (!inspected.ok) return inspected;
       clone.push(inspected.value.data);
@@ -169,23 +189,16 @@ function inspectValue(input: unknown, path: string, depth: number, budget: Mutab
   }
 
   if (prototype !== Object.prototype && prototype !== null) return failure('invalid_input', 'Records must be plain JSON-compatible objects.', path, budget);
-  const descriptors = Object.getOwnPropertyDescriptors(input);
-  const keys = Reflect.ownKeys(descriptors);
-  if (keys.length > UNTRUSTED_INSPECTION_LIMITS.maxObjectKeys) return failure('invalid_input', 'Object contains too many fields.', path, budget);
   for (const key of keys) {
     if (typeof key !== 'string') return failure('invalid_input', 'Symbol keys are not supported.', path, budget);
     const exceeded = consumeString(key, `${path}.${key}`, budget);
     if (exceeded) return exceeded;
     if (isCredentialFieldName(key)) return failure('credential_field', 'Credential-bearing fields are forbidden at this boundary.', `${path}.${key}`, budget);
   }
-  budget.propertiesAndEntries += keys.length;
-  if (budget.propertiesAndEntries > UNTRUSTED_INSPECTION_LIMITS.maxPropertiesAndEntries) {
-    return aggregateLimit(budget, path, 'maxPropertiesAndEntries', budget.propertiesAndEntries);
-  }
   const clone: Record<string, JsonValue> = Object.create(null) as Record<string, JsonValue>;
   for (const key of keys) {
     if (typeof key !== 'string') return failure('invalid_input', 'Symbol keys are not supported.', path, budget);
-    const descriptor = descriptors[key];
+    const descriptor = Object.getOwnPropertyDescriptor(input, key);
     if (!descriptor || !Object.hasOwn(descriptor, 'value')) return failure('invalid_input', 'Accessor properties are not supported.', `${path}.${key}`, budget);
     const inspected = inspectValue(descriptor.value, `${path}.${key}`, depth + 1, budget);
     if (!inspected.ok) return inspected;
@@ -196,7 +209,7 @@ function inspectValue(input: unknown, path: string, depth: number, budget: Mutab
 
 export function inspectJsonCompatibleInput(input: unknown): InspectionResult {
   const budget: MutableInspectionBudget = {
-    visitedValues: 0,
+    containerNodes: 0,
     propertiesAndEntries: 0,
     cumulativeStringCodeUnits: 0,
     seenReferences: new WeakSet<object>(),

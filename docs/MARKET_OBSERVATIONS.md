@@ -51,14 +51,16 @@ A snapshot declares `complete | incomplete` independently of `active | suspended
 
 The slice reuses deterministic-odds limits where the constraint is identical: 16 outcomes, 128 characters per outcome ID, 256 characters per observation reference, and the existing decimal-odds syntax/range. New version-1 limits are 128 characters for source and canonical IDs, 256 for provider/terms/locator references, 128 for source/adapter versions, 512 for replay limitation reasons and 24 for the fixed timestamp form. Market count and boundary string length are checked before domain parsing or numeric conversion; sparse arrays, primitives, nulls, accessors, proxies, unknown enums, duplicates and identity conflicts return stable errors with paths and outcome indexes.
 
-`untrusted-json-inspection-v1` applies one shared budget to the entire snapshot before cloning or descending:
+`untrusted-json-inspection-v2` applies one shared budget to the entire snapshot before cloning or descending:
 
-- 512 visited values, counting the root, every object/array and every primitive value.
+- 128 unique container nodes (objects and arrays).
 - 512 total object properties plus array entries.
 - 16,384 cumulative JavaScript UTF-16 code units across string values and object field names; array index labels are not counted.
 - Depth 8, 64 keys per object, 17 entries per array and 1,024 UTF-16 code units per individual string.
 
-The limits comfortably contain the intended maximum 16-outcome winner-market contract while preventing multiplicative graph inspection. A deterministic maximum-size test fixture uses 206 visited values, 205 properties/entries and 3,140 UTF-16 code units. Exact-limit and one-over tests cover every aggregate counter. A shared-subtree fixture records one prototype inspection and then rejects its second reference, providing visit-count evidence without a timing assertion.
+The counters protect distinct resources. In any acyclic JSON tree, total values equal properties/array entries plus the root, so version 2 does not retain a redundant total-value counter. The property/entry budget bounds edges and primitive-heavy breadth; the independently reachable container-node budget bounds allocation and recursive structural work. The limits comfortably contain the intended maximum 16-outcome winner-market contract: the deterministic maximum-size fixture uses 38 container nodes, 206 properties/entries and 3,383 UTF-16 code units. Valid exact-limit and one-unit-over tests independently cover every aggregate and local counter without accessors or timing assertions.
+
+Inspection safely enumerates own keys, then rejects a key set that exceeds its local or remaining aggregate budget before prototype inspection, descriptor lookup, field-name classification, cloning or descent. Accepted keys are inspected with individual safe descriptor lookups; untrusted objects are never passed to `Object.getOwnPropertyDescriptors`. Arrays follow the same order, counting entries separately from the mandatory `length` key and validating their declared length before entry descriptors. JavaScript cannot bound work performed internally by a malicious proxy's `ownKeys` trap itself. After that trap returns, however, the application performs no descriptor amplification: regression proxies return 2,000 keys and record zero descriptor-trap calls before rejection.
 
 Because the accepted representation is JSON-compatible, cycles and every repeated object/array identity are rejected as `repeated_reference` using one snapshot-wide identity set before a subtree is cloned again. Aggregate exhaustion returns `inspection_limit_exceeded` with frozen limit/usage metadata. Individual malformed values retain `invalid_input`.
 

@@ -198,47 +198,35 @@ test('rejects alias amplification before a shared subtree is inspected twice', (
   assert.equal(prototypeVisits, 1);
 });
 
-function treeWithValueCount(totalValues) {
-  if (totalValues === 1) return null;
-  const childCount = Math.min(UNTRUSTED_INSPECTION_LIMITS.maxArrayLength, totalValues - 1);
-  const remaining = totalValues - 1;
+function treeWithPropertyCount(totalProperties) {
+  const keyCount = Math.min(UNTRUSTED_INSPECTION_LIMITS.maxObjectKeys, totalProperties);
+  const record = Object.fromEntries(Array.from({ length: keyCount }, (_, index) => [`p${index}`, null]));
+  if (totalProperties > keyCount) record.p0 = treeWithPropertyCount(totalProperties - keyCount);
+  return record;
+}
+
+function treeWithContainerCount(totalContainers) {
+  if (totalContainers === 1) return [];
+  const childCount = Math.min(UNTRUSTED_INSPECTION_LIMITS.maxArrayLength, totalContainers - 1);
+  const remaining = totalContainers - 1;
   const base = Math.floor(remaining / childCount);
   const extra = remaining % childCount;
-  return Array.from({ length: childCount }, (_, index) => treeWithValueCount(base + (index < extra ? 1 : 0)));
+  return Array.from({ length: childCount }, (_, index) => treeWithContainerCount(base + (index < extra ? 1 : 0)));
 }
 
-function propertyChain(keyCounts) {
-  let child;
-  for (let index = keyCounts.length - 1; index >= 0; index -= 1) {
-    const record = {};
-    const count = keyCounts[index];
-    if (child !== undefined) record.a = child;
-    const start = child === undefined ? 0 : 1;
-    for (let key = start; key < count; key += 1) record[`p${index}_${key}`] = null;
-    child = record;
-  }
-  const leaf = child;
-  let cursor = leaf;
-  while (cursor.a) cursor = cursor.a;
-  const firstKey = Object.keys(cursor)[0];
-  Object.defineProperty(cursor, firstKey, { enumerable: true, get() { throw new Error('must not escape'); } });
-  return leaf;
-}
+test('enforces exact and one-unit-over aggregate container, property and UTF-16 string budgets', () => {
+  const exactContainers = inspectJsonCompatibleInput(treeWithContainerCount(UNTRUSTED_INSPECTION_LIMITS.maxContainerNodes));
+  assert.equal(exactContainers.ok, true);
+  assert.equal(exactContainers.value.usage.containerNodes, UNTRUSTED_INSPECTION_LIMITS.maxContainerNodes);
+  const overContainers = inspectJsonCompatibleInput(treeWithContainerCount(UNTRUSTED_INSPECTION_LIMITS.maxContainerNodes + 1));
+  const containerError = error(overContainers, 'inspection_limit_exceeded');
+  assert.equal(containerError.metadata.limitName, 'maxContainerNodes');
+  assert.equal(containerError.metadata.actual, UNTRUSTED_INSPECTION_LIMITS.maxContainerNodes + 1);
 
-test('enforces exact and one-unit-over aggregate node, property and UTF-16 string budgets', () => {
-  const exactNodes = inspectJsonCompatibleInput(treeWithValueCount(UNTRUSTED_INSPECTION_LIMITS.maxVisitedValues));
-  assert.equal(exactNodes.ok, true);
-  assert.equal(exactNodes.value.usage.visitedValues, UNTRUSTED_INSPECTION_LIMITS.maxVisitedValues);
-  const overNodes = inspectJsonCompatibleInput(treeWithValueCount(UNTRUSTED_INSPECTION_LIMITS.maxVisitedValues + 1));
-  const nodeError = error(overNodes, 'inspection_limit_exceeded');
-  assert.equal(nodeError.metadata.limitName, 'maxVisitedValues');
-  assert.equal(nodeError.metadata.actual, UNTRUSTED_INSPECTION_LIMITS.maxVisitedValues + 1);
-
-  const exactProperties = inspectJsonCompatibleInput(propertyChain([64, 64, 64, 64, 64, 64, 64, 1, 63]));
-  assert.equal(exactProperties.ok, false);
-  assert.equal(exactProperties.error.code, 'invalid_input');
-  assert.equal(exactProperties.error.metadata.usage.propertiesAndEntries, UNTRUSTED_INSPECTION_LIMITS.maxPropertiesAndEntries);
-  const overProperties = inspectJsonCompatibleInput(propertyChain([64, 64, 64, 64, 64, 64, 64, 1, 64]));
+  const exactProperties = inspectJsonCompatibleInput(treeWithPropertyCount(UNTRUSTED_INSPECTION_LIMITS.maxPropertiesAndEntries));
+  assert.equal(exactProperties.ok, true);
+  assert.equal(exactProperties.value.usage.propertiesAndEntries, UNTRUSTED_INSPECTION_LIMITS.maxPropertiesAndEntries);
+  const overProperties = inspectJsonCompatibleInput(treeWithPropertyCount(UNTRUSTED_INSPECTION_LIMITS.maxPropertiesAndEntries + 1));
   const propertyError = error(overProperties, 'inspection_limit_exceeded');
   assert.equal(propertyError.metadata.limitName, 'maxPropertiesAndEntries');
   assert.equal(propertyError.metadata.actual, UNTRUSTED_INSPECTION_LIMITS.maxPropertiesAndEntries + 1);
@@ -252,9 +240,57 @@ test('enforces exact and one-unit-over aggregate node, property and UTF-16 strin
   assert.equal(stringError.metadata.actual, UNTRUSTED_INSPECTION_LIMITS.maxCumulativeStringCodeUnits + 1);
 });
 
+test('enforces exact and one-over local object and array limits', () => {
+  const exactObject = Object.fromEntries(Array.from({ length: UNTRUSTED_INSPECTION_LIMITS.maxObjectKeys }, (_, index) => [`k${index}`, null]));
+  const exactObjectResult = inspectJsonCompatibleInput(exactObject);
+  assert.equal(exactObjectResult.ok, true);
+  assert.equal(exactObjectResult.value.usage.propertiesAndEntries, UNTRUSTED_INSPECTION_LIMITS.maxObjectKeys);
+  const overObject = { ...exactObject, overflow: null };
+  const objectError = error(inspectJsonCompatibleInput(overObject), 'inspection_limit_exceeded');
+  assert.equal(objectError.metadata.limitName, 'maxObjectKeys');
+  assert.equal(objectError.metadata.actual, UNTRUSTED_INSPECTION_LIMITS.maxObjectKeys + 1);
+
+  const exactArray = Array.from({ length: UNTRUSTED_INSPECTION_LIMITS.maxArrayLength }, () => null);
+  const exactArrayResult = inspectJsonCompatibleInput(exactArray);
+  assert.equal(exactArrayResult.ok, true);
+  assert.equal(exactArrayResult.value.usage.propertiesAndEntries, UNTRUSTED_INSPECTION_LIMITS.maxArrayLength);
+  const arrayError = error(inspectJsonCompatibleInput([...exactArray, null]), 'inspection_limit_exceeded');
+  assert.equal(arrayError.metadata.limitName, 'maxArrayLength');
+  assert.equal(arrayError.metadata.actual, UNTRUSTED_INSPECTION_LIMITS.maxArrayLength + 1);
+});
+
+test('oversized proxy key sets are rejected before individual descriptor work', () => {
+  const maliciousKeys = Array.from({ length: 2_000 }, (_, index) => `malicious_${index}`);
+  let objectDescriptorCalls = 0;
+  const objectProxy = new Proxy({}, {
+    ownKeys: () => maliciousKeys,
+    getOwnPropertyDescriptor() { objectDescriptorCalls += 1; return { configurable: true, enumerable: true, value: null }; },
+  });
+  const objectError = error(inspectJsonCompatibleInput(objectProxy), 'inspection_limit_exceeded');
+  assert.equal(objectError.metadata.limitName, 'maxObjectKeys');
+  assert.equal(objectDescriptorCalls, 0);
+
+  let arrayDescriptorCalls = 0;
+  const arrayProxy = new Proxy([], {
+    ownKeys: () => ['length', ...maliciousKeys],
+    getOwnPropertyDescriptor() { arrayDescriptorCalls += 1; return { configurable: true, enumerable: true, value: null }; },
+  });
+  const arrayError = error(inspectJsonCompatibleInput(arrayProxy), 'inspection_limit_exceeded');
+  assert.equal(arrayError.metadata.limitName, 'maxArrayLength');
+  assert.equal(arrayDescriptorCalls, 0);
+});
+
 test('accepts an ordinary maximum valid 16-outcome observation within aggregate budgets', () => {
   const outcomes = Array.from({ length: MAX_MARKET_OUTCOMES }, (_, index) => outcome(`outcome-${index}`, '2'));
-  const result = normalizeMarketObservation(observation({ outcomes }));
+  const fixture = observation({ outcomes });
+  const inspected = inspectJsonCompatibleInput(fixture);
+  assert.equal(inspected.ok, true);
+  assert.deepEqual(inspected.value.usage, {
+    containerNodes: 38,
+    propertiesAndEntries: 206,
+    cumulativeStringCodeUnits: 3_383,
+  });
+  const result = normalizeMarketObservation(fixture);
   assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
   assert.equal(result.value.outcomes.length, MAX_MARKET_OUTCOMES);
 });
