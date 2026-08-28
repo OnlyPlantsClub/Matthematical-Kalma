@@ -213,18 +213,18 @@ An authorised audit query by `recommendation_id` returns:
 9. Fair odds, edge, EV, suggested stake and reason codes.
 10. Observed, received, effective, created, published and expiry times.
 
-**Verification replay** recomputes from retained canonical inputs within a declared tolerance. **Forensic replay** additionally uses the original executable/model artifact. If licensing prevents raw retention, checksum, canonical extracted fields, source locator, receipt, terms version and transform manifest are mandatory and the limitation is explicit.
+**Verification replay** recomputes from retained canonical inputs within a declared tolerance. **Forensic replay** additionally uses the original executable/model artifact. Every provider-derived replay component—including raw bytes, checksums, extracted fields and locators—is retained only when its current rights schedule and `intelligence-retention/1` disposition permit it. If a required component is prohibited, expired or deleted, replay is explicitly unavailable or limited; the system retains only the non-content limitation/deletion evidence that the same schedule permits.
 
 Recommendations may be invalidated, expired or withdrawn, never edited silently. Corrections reference the original, actor/source, reason, time and a new content hash.
 
 ## 7. Idempotency, deduplication and provenance
 
 - Retriable commands require `Idempotency-Key`, scoped by authenticated user + command, with request hash, response reference and expiry. Reuse with a different request conflicts.
-- Provider ingestion keys stable records by `(source, type, source_id, source_version/observed_at)`; absent stable IDs, use a documented canonical fingerprint plus payload SHA-256.
-- Price uniqueness uses source quote ID, or `(operator, outcome, observed_at, odds_scaled, availability, payload_hash)`. Same-price observations at different source times remain valid.
+- Provider ingestion keys stable records by `(source, type, source_id, source_version/observed_at)` when those fields are permitted; absent permitted stable IDs or hashes, ingestion must use an approved non-provider fixture identity or fail closed rather than invent durable provider-derived identity.
+- Price uniqueness uses permitted source quote ID or permitted canonical fields/hash under the active rights schedule. Same-price observations at different source times remain valid when their required retained identity is permitted; otherwise the observation is not persisted.
 - Event matching uses sport, competition, participants, start tolerance and venue. Ambiguity is quarantined, never guessed.
-- Dataset/input/recommendation bundles use deterministic canonical JSON + SHA-256.
-- Imported facts store source/provider time, receipt time, adapter/schema version, quality, artifact hash, ingestion run and correction chain.
+- Dataset/input/recommendation bundles use deterministic canonical JSON + SHA-256 only when every provider-derived input and retained digest is permitted by its rights schedule; otherwise the bundle is not sealed/persisted or is rebuilt from permitted inputs.
+- Imported facts store only rights-permitted source/provider time, receipt time, adapter/schema version, quality, artifact hash, ingestion run and correction chain. Missing mandatory semantic evidence fails closed; deletion can intentionally make replay unavailable.
 - Delivery is at-least-once; unique constraints and receipts make domain effects exactly-once.
 
 ## 8. Time and freshness
@@ -365,12 +365,12 @@ Decided now:
 - Ledger-derived balances and balanced transactions.
 - UTC instants, IANA zones, explicit freshness/pre-start policy.
 - Integer/scaled values and versioned rounding.
-- Provider-neutral records, provenance, hashes and idempotent writes.
+- Provider-neutral records, rights-conditioned provenance/hashes and idempotent writes under `intelligence-retention/1`.
 - No production demo runtime state.
 
 Safely deferred:
 
-- Providers, licensing and raw-payload retention.
+- Provider selection and provider-specific acquisition, licensing, class-by-class retention, derived/model survival and deletion rights. The governing `intelligence-retention/1` policy and authenticated rehydration architecture are decided in ADR-0015/0016.
 - External public/self-service auth after the private MVP, if Access no longer fits.
 - Paper-only versus optional manual real-money (supported by `bankroll.kind`).
 - ATP/WTA scope, AFL second market, operator coverage and model algorithms.
