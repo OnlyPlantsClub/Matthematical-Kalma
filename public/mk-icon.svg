@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">MathKalma app icon</title>
+  <desc id="desc">Forward-leaning white m and yellow k on a rich blue rounded square with a compact green confirmation badge.</desc>
+  <defs>
+    <linearGradient id="bg" x1="128" y1="96" x2="896" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1687D3"/><stop offset="0.55" stop-color="#0867AD"/><stop offset="1" stop-color="#003E6B"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".18"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <path d="M160 160h704a96 96 0 0 1 96 96v70C768 210 480 205 160 338Z" fill="url(#shine)"/>
+  <g transform="translate(52 8) skewX(-10)">
+    <path fill="#fff" d="M134 655V342h119l14 43c29-38 68-57 116-57 54 0 92 22 115 65 35-43 79-65 133-65 43 0 77 13 103 39 26 27 39 65 39 115v173H627V496c0-38-16-57-47-57-36 0-54 25-54 76v140H400V496c0-38-15-57-46-57-37 0-55 25-55 76v140Z"/>
+    <path fill="#FFDF00" d="M603 655V303h133v180l97-141h150L866 494l133 161H835l-99-137v137Z"/>
+  </g>
+  <g transform="translate(798 164)">
+    <circle cx="0" cy="0" r="92" fill="#54C85B" stroke="#fff" stroke-width="20"/>
+    <path d="m-43 1 27 29 58-66" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

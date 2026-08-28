@@ -1,6 +1,9 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M22 19.2727C22 20.779 20.779 22 19.2727 22H14.7273C13.221 22 12 20.779 12 19.2727V12H19.2727C20.779 12 22 13.221 22 14.7273V19.2727Z" fill="#68C4FF"/>
-<path d="M20 2C21.1046 2 22 2.89543 22 4V7C22 8.10457 21.1046 9 20 9H17C15.8954 9 15 8.10457 15 7V4C15 2.89543 15.8954 2 17 2H20Z" fill="#0C79D8"/>
-<path d="M7 15C8.10457 15 9 15.8954 9 17V20C9 21.1046 8.10457 22 7 22H4C2.89543 22 2 21.1046 2 20V17C2 15.8954 2.89543 15 4 15H7Z" fill="#0C79D8"/>
-<path d="M12 12H4.72727C3.22104 12 2 10.779 2 9.27273V4.72727C2 3.22104 3.22104 2 4.72727 2H9.27273C10.779 2 12 3.22104 12 4.72727V12Z" fill="#2E9EFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="MathKalma">
+  <defs><linearGradient id="b" x1="128" y1="96" x2="896" y2="928" gradientUnits="userSpaceOnUse"><stop stop-color="#1687D3"/><stop offset=".55" stop-color="#0867AD"/><stop offset="1" stop-color="#003E6B"/></linearGradient></defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#b)"/>
+  <g transform="translate(52 8) skewX(-10)">
+    <path fill="#fff" d="M134 655V342h119l14 43c29-38 68-57 116-57 54 0 92 22 115 65 35-43 79-65 133-65 43 0 77 13 103 39 26 27 39 65 39 115v173H627V496c0-38-16-57-47-57-36 0-54 25-54 76v140H400V496c0-38-15-57-46-57-37 0-55 25-55 76v140Z"/>
+    <path fill="#FFDF00" d="M603 655V303h133v180l97-141h150L866 494l133 161H835l-99-137v137Z"/>
+  </g>
+  <g transform="translate(798 164)"><circle r="92" fill="#54C85B" stroke="#fff" stroke-width="20"/><path d="m-43 1 27 29 58-66" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/></g>
 </svg>
