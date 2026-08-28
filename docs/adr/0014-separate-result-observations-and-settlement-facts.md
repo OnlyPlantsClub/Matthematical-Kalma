@@ -16,7 +16,9 @@ Require a one-to-one evidence-backed mapping from every provider participant/rol
 
 Parse one canonical observation directly without synthetic ancestry. Govern unlinked lifecycle progression separately from linked corrections. Provisional→official requires compatible facts and completion; lifecycle regressions and incompatible completion data conflict.
 
-Mappings require a separately supplied opaque decision issued from a live exact participant resolution by the canonical alias module. A module-private runtime registry rejects structurally identical fabrications, copies and serialized values. Retained immutable evidence binds resolver and alias versions, alias lifecycle/effective interval and the entire source/provider/canonical scope. This proves resolver issuance only inside the current trusted runtime; durable cross-process authenticity is deferred to governed persistence, signing, keyed integrity or an equivalent trust boundary.
+Mappings require a separately supplied opaque decision issued from live exact participant and event resolutions plus an issued canonical event identity. Both resolutions must share one explicit evaluation instant and be effective then. A module-private runtime registry rejects structurally identical fabrications, copies and serialized values. Retained immutable evidence separately binds both resolver/alias contexts and the entire source/provider/canonical scope.
+
+Successful canonical observations and validated graphs are themselves opaque capabilities. Every downstream history, lineage, graph and settlement boundary verifies private registry membership; none falls back to structural parsing. Capability collections are bounded plain dense arrays inspected without cloning their entries.
 
 Settlement derivation internally validates a complete caller-declared authoritative snapshot, not a selected ancestry. The graph must have unique references, complete parents, one scope, no cycles/forks, valid authority and ordering, and a selected current lineage covering the snapshot. Graph inventory, roots, successor-map keys and successor lists use an explicit observation-reference code-unit order; selected lineage is current-to-root, making graph and settlement replay invariant to input permutation. Its claim is fork freedom within that snapshot only. Successor `correctionAt` cannot predate a corrected parent's correction time. Injected evaluation time establishes what is available for this validation, not historical ordering between evaluations.
 
@@ -30,6 +32,7 @@ Settlement derivation internally validates a complete caller-declared authoritat
 - A future storage design must preserve all three records and their references append-only.
 - Replay proves deterministic interpretation of the supplied immutable observations, not provider truth or persistence.
 - Snapshot authority and completeness must ultimately be enforced by governed persistence; an in-memory declaration cannot prove the caller omitted nothing.
+- Private registries are instance-local. Module duplication, hot reload, separate bundles/Worker isolates, restarts and serialization all lose authority. Operational persistence requires governed authentication and rehydration; the current design is intentionally an in-memory domain boundary.
 
 ## Alternatives considered
 
