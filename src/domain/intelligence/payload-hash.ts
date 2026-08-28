@@ -49,19 +49,32 @@ function notVerifiable(input: RetentionInput): DomainResult<PayloadHashVerificat
     expectedHash: input.payloadHash, replayMode: input.replayMode, policy: PAYLOAD_HASH_POLICY });
 }
 
+function utf8ByteLengthWithinLimit(value: string, limit: number): number | undefined {
+  let bytes = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const first = value.charCodeAt(index);
+    if (first <= 0x7f) bytes += 1;
+    else if (first <= 0x7ff) bytes += 2;
+    else if (first >= 0xd800 && first <= 0xdbff && index + 1 < value.length
+      && value.charCodeAt(index + 1) >= 0xdc00 && value.charCodeAt(index + 1) <= 0xdfff) { bytes += 4; index += 1; }
+    else bytes += 3;
+    if (bytes > limit) return undefined;
+  }
+  return bytes;
+}
+
 export async function verifyPayloadHash(retentionInput: unknown, payload?: string | Uint8Array): Promise<DomainResult<PayloadHashVerification>> {
   const safe = snapshot(retentionInput); if (!safe.ok) return safe;
   const parsed = retention(safe.value); if (!parsed.ok) return parsed;
   if (payload === undefined) return notVerifiable(parsed.value);
-  let bytes: Uint8Array; let payloadKind: 'bytes' | 'utf8_string'; let length: number;
+  let digestInput: ArrayBuffer; let payloadKind: 'bytes' | 'utf8_string'; let length: number;
   if (typeof payload === 'string') {
     payloadKind = 'utf8_string';
-    if (payload.length > PAYLOAD_HASH_POLICY.maxPayloadBytes) return fail('payload_too_large', 'Payload exceeds the maximum size before UTF-8 encoding or hashing.', '$payload',
-      { metadata: { limit: PAYLOAD_HASH_POLICY.maxPayloadBytes, actual: payload.length, unit: 'utf16_code_units_lower_bound' } });
-    try { length = new TextEncoder().encode(payload).byteLength; } catch { return fail('invalid_payload', 'String payload could not be encoded as UTF-8.', '$payload'); }
-    if (length > PAYLOAD_HASH_POLICY.maxPayloadBytes) return fail('payload_too_large', 'Payload exceeds the maximum size before hashing.', '$payload',
-      { metadata: { limit: PAYLOAD_HASH_POLICY.maxPayloadBytes, actual: length } });
-    bytes = new TextEncoder().encode(payload);
+    const boundedLength = utf8ByteLengthWithinLimit(payload, PAYLOAD_HASH_POLICY.maxPayloadBytes);
+    if (boundedLength === undefined) return fail('payload_too_large', 'UTF-8 payload exceeds the maximum size before encoding or hashing.', '$payload',
+      { metadata: { limit: PAYLOAD_HASH_POLICY.maxPayloadBytes } });
+    try { const encoded = new TextEncoder().encode(payload); length = boundedLength; digestInput = encoded.buffer; }
+    catch { return fail('invalid_payload', 'String payload could not be encoded as UTF-8.', '$payload'); }
   } else {
     payloadKind = 'bytes';
     try {
@@ -74,12 +87,12 @@ export async function verifyPayloadHash(retentionInput: unknown, payload?: strin
       if (!Number.isSafeInteger(length) || length < 0) return fail('invalid_payload', 'Payload byte length is invalid.', '$payload');
       if (length > PAYLOAD_HASH_POLICY.maxPayloadBytes) return fail('payload_too_large', 'Payload exceeds the maximum size before copying or hashing.', '$payload',
         { metadata: { limit: PAYLOAD_HASH_POLICY.maxPayloadBytes, actual: length } });
-      bytes = new Uint8Array(payload.buffer, payload.byteOffset, length).slice();
+      digestInput = new ArrayBuffer(length);
+      new Uint8Array(digestInput).set(payload);
     } catch { return fail('invalid_payload', 'Payload byte view is detached, invalid or hostile.', '$payload'); }
   }
   try {
-    const digestInput = new Uint8Array(bytes.byteLength); digestInput.set(bytes);
-    const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', digestInput.buffer));
+    const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', digestInput));
     const actualHash = toCanonicalHash(digest); const matches = constantTimeEqual(hashBytes(parsed.value.payloadHash), digest);
     return ok({ contractVersion: 'payload-hash-verification-v1', status: matches ? 'verified' : 'mismatch',
       reason: matches ? 'sha256_matches_retained_payload_bytes' : 'sha256_mismatch', expectedHash: parsed.value.payloadHash,

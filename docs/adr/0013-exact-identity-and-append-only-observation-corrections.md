@@ -8,11 +8,11 @@ Provider keys, names, event times and corrected payloads can disagree. Guessing 
 
 ## Decision
 
-Use opaque caller-owned canonical IDs and effective-dated provider aliases. Version 1 resolves only a single evidence-backed exact source/provider/external-key candidate whose entity and sport/competition/event-time context agrees. Similarity never resolves. Multiple exact candidates quarantine without a winner. Supersession preserves the prior mapping and reason.
+Use entity-tagged opaque caller-owned canonical IDs and a bounded effective-dated alias-set state machine. Resolution confirms stored resolved, unresolved, ambiguous, quarantined or superseded state against exact evidence; it never derives preference from input order. Supersession uses a distinct historical mapping field and a validated non-overlapping, target-complete, acyclic chain.
 
-Classify observation duplicates/corrections from immutable source-envelope references and canonical SHA-256 hashes. Corrections require an explicit existing parent, append rather than mutate, and remain within one source/provider/event/market/identity version. Equal hashes with conflicting metadata are conflicts; different hashes alone are not corrections. Validate correction graphs for missing parents and cycles.
+Classify observations from their source-envelope parent and explicit typed sport/competition/event/market/ordered-outcome identity scope. Corrections require an explicit existing parent and append rather than mutate. Equal hashes with any exact-fact tuple disagreement conflict. Validate the complete existing graph for missing parents, cycles, forks, cross-scope links, contradictory successors and depth before classification.
 
-When comparable integer source sequences differ, they order facts; otherwise observation time, receipt time and opaque reference are deterministic tie-breakers. Sequence/time disagreement is recorded. Verify supplied retained bytes with Web Crypto SHA-256 under a 1 MiB pre-hash limit; strings mean UTF-8 and objects have no canonical serialization. Missing bytes are `not_verifiable`.
+When comparable integer source sequences differ, they order facts; otherwise observation time, receipt time and opaque reference are deterministic tie-breakers. The exported comparator validates untrusted facts first. Supplied retained bytes are verified with Web Crypto SHA-256 under a 1 MiB limit; UTF-8 strings use a preflight count and one encoding, byte views one defensive copy. Missing bytes are `not_verifiable`. Provider trust, canonical payload production, retention, locator durability and production workflow remain unresolved.
 
 ## Consequences
 

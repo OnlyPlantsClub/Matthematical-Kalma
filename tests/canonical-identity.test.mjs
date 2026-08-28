@@ -1,162 +1,57 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import {
-  ALIAS_RESOLUTION_POLICY, CANONICAL_IDENTITY_CONTRACT_VERSION, MAX_ALIAS_CANDIDATES,
-  normalizeCanonicalIdentity, resolveProviderAlias,
-} from '../src/domain/intelligence/canonical-identity.ts';
-import { DEDUPLICATION_POLICY, MAX_OBSERVATION_FACTS, classifyObservation } from '../src/domain/intelligence/observation-deduplication.ts';
+import { ALIAS_CONTRACT_VERSION, ALIAS_RESOLUTION_POLICY, ALIAS_SET_CONTRACT_VERSION, CANONICAL_IDENTITY_CONTRACT_VERSION, MAX_ALIASES, normalizeCanonicalIdentity, resolveProviderAlias, validateAliasSet } from '../src/domain/intelligence/canonical-identity.ts';
+import { DEDUPLICATION_POLICY, MAX_OBSERVATION_FACTS, OBSERVATION_SCOPE_VERSION, classifyObservation, compareObservationOrder } from '../src/domain/intelligence/observation-deduplication.ts';
 import { PAYLOAD_HASH_POLICY, verifyPayloadHash } from '../src/domain/intelligence/payload-hash.ts';
 
-const at = '2026-08-28T01:00:00.000Z';
-const later = '2026-08-28T01:01:00.000Z';
+const at = '2026-08-28T01:00:00.000Z', boundary = '2026-08-28T02:00:00.000Z', after = '2026-08-28T03:00:00.000Z';
 const hash = (byte) => `sha256:${byte.repeat(64)}`;
 const value = (result) => { assert.equal(result.ok, true, result.ok ? undefined : `${result.error.code}: ${result.error.path}`); return result.value; };
-const error = (result, code, path) => { assert.equal(result.ok, false); assert.equal(result.error.code, code); if (path) assert.equal(result.error.path, path); return result.error; };
+const error = (result, code) => { assert.equal(result.ok, false); assert.equal(result.error.code, code); assert.ok(Object.isFrozen(result.error)); return result.error; };
 
-function identity(overrides = {}) {
-  return { contractVersion: CANONICAL_IDENTITY_CONTRACT_VERSION, entityType: 'event', canonicalId: 'evt_01HXOpaque', version: 'identity-policy/1',
-    evidenceRefs: ['evidence/event/1'], sportId: 'sport_afl', competitionId: 'competition_afl_mens', eventStartAt: later,
-    participants: [
-      { participantId: 'participant_home', role: 'home', roleVersion: 'role/1', evidenceRefs: ['evidence/home'] },
-      { participantId: 'participant_away', role: 'away', roleVersion: 'role/1', evidenceRefs: ['evidence/away'] },
-    ], ...overrides };
-}
-function alias(overrides = {}) {
-  return { contractVersion: 'provider-alias-v1', aliasRef: 'alias/provider/event-77', entityType: 'event', sourceId: 'source_a', providerRef: 'provider/a',
-    externalKey: 'event/77', sportId: 'sport_afl', competitionId: 'competition_afl_mens', eventStartAt: later,
-    effectiveFrom: at, status: 'unresolved', evidenceRefs: ['evidence/source-row/77'], version: 'alias-policy/1', ...overrides };
-}
-function candidate(id = 'evt_01HXOpaque', overrides = {}) {
-  return { candidateRef: `candidate/${id}`, canonicalId: id, entityType: 'event', sourceId: 'source_a', providerRef: 'provider/a', externalKey: 'event/77',
-    sportId: 'sport_afl', competitionId: 'competition_afl_mens', eventStartAt: later, evidenceRefs: [`evidence/${id}`], evidenceKind: 'exact_source_key', ...overrides };
-}
-function resolution(aliasValue = alias(), candidates = [candidate()], asOf = at) {
-  return { alias: aliasValue, candidates, asOf, policy: ALIAS_RESOLUTION_POLICY };
-}
+function identity(overrides = {}) { return { contractVersion: CANONICAL_IDENTITY_CONTRACT_VERSION, entityType: 'event', canonicalId: 'event:opaque-1', version: 'identity/2', evidenceRefs: ['evidence/event'], sportId: 'sport:opaque-1', competitionId: 'competition:opaque-1', eventStartAt: boundary, participants: [{ participantId: 'participant:opaque-a', roleId: 'role:home-1', role: 'home', roleVersion: '1', evidenceRefs: ['e/a'] }, { participantId: 'participant:opaque-b', roleId: 'role:away-1', role: 'away', roleVersion: '1', evidenceRefs: ['e/b'] }], ...overrides }; }
+function alias(status = 'resolved', overrides = {}) { const state = { resolved: { canonicalId: 'event:opaque-1' }, unresolved: {}, ambiguous: { viableCandidateRefs: ['candidate/a', 'candidate/b'] }, quarantined: { quarantineReason: 'manual_identity_review' }, superseded: { historicalCanonicalId: 'event:opaque-old', supersededByAliasRef: 'alias/new', supersessionReason: 'provider_rekey' } }[status]; return { contractVersion: ALIAS_CONTRACT_VERSION, aliasRef: 'alias/current', entityType: 'event', sourceId: 'source_a', providerRef: 'provider/a', externalKey: 'event/77', sportId: 'sport:opaque-1', competitionId: 'competition:opaque-1', eventStartAt: boundary, effectiveFrom: at, status, evidenceRefs: ['evidence/alias'], version: 'alias/2', ...state, ...overrides }; }
+function candidate(id = 'event:opaque-1', ref = 'candidate/one', overrides = {}) { return { candidateRef: ref, canonicalId: id, entityType: 'event', sourceId: 'source_a', providerRef: 'provider/a', externalKey: 'event/77', sportId: 'sport:opaque-1', competitionId: 'competition:opaque-1', eventStartAt: boundary, evidenceRefs: [`evidence/${ref}`], evidenceKind: 'exact_source_key', ...overrides }; }
+const set = (...aliases) => ({ contractVersion: ALIAS_SET_CONTRACT_VERSION, aliases });
+const resolve = (aliasSet, candidates, asOf = at) => resolveProviderAlias({ aliasSet, candidates, asOf, policy: ALIAS_RESOLUTION_POLICY });
 
-test('canonical IDs are stable opaque inputs and event roles are recursively immutable', () => {
-  const first = value(normalizeCanonicalIdentity(identity()));
-  const renamedDisplayEvidence = value(normalizeCanonicalIdentity(identity({ evidenceRefs: ['evidence/renamed-display'] })));
-  assert.equal(first.canonicalId, renamedDisplayEvidence.canonicalId);
-  assert.equal(first.canonicalId.includes('home'), false);
-  assert.ok(Object.isFrozen(first)); assert.ok(Object.isFrozen(first.participants)); assert.ok(Object.isFrozen(first.participants[0].evidenceRefs));
-  assert.throws(() => first.participants.push({}), TypeError);
-  for (const entity of [
-    { contractVersion: CANONICAL_IDENTITY_CONTRACT_VERSION, entityType: 'sport', canonicalId: 'sport_01', version: '1', evidenceRefs: ['e/1'] },
-    { contractVersion: CANONICAL_IDENTITY_CONTRACT_VERSION, entityType: 'competition', canonicalId: 'comp_01', version: '1', evidenceRefs: ['e/1'], sportId: 'sport_01' },
-    { contractVersion: CANONICAL_IDENTITY_CONTRACT_VERSION, entityType: 'participant', canonicalId: 'part_01', version: '1', evidenceRefs: ['e/1'], sportId: 'sport_01', competitionId: 'comp_01' },
-  ]) assert.equal(normalizeCanonicalIdentity(entity).ok, true);
-});
+test('entity-tagged opaque IDs enforce runtime type separation and immutable role IDs', () => { const result = value(normalizeCanonicalIdentity(identity())); assert.ok(Object.isFrozen(result.participants[0])); for (const [field, wrong] of [['canonicalId', 'participant:opaque-1'], ['sportId', 'competition:opaque-1'], ['competitionId', 'sport:opaque-1']]) error(normalizeCanonicalIdentity(identity({ [field]: wrong })), 'invalid_entity_id'); error(normalizeCanonicalIdentity(identity({ participants: [{ ...identity().participants[0], participantId: 'event:opaque-a' }, identity().participants[1]] })), 'invalid_entity_id'); error(normalizeCanonicalIdentity(identity({ participants: [{ ...identity().participants[0], roleId: 'participant:home-1' }, identity().participants[1]] })), 'invalid_entity_id');
+  for (const entity of [{ contractVersion: CANONICAL_IDENTITY_CONTRACT_VERSION, entityType: 'sport', canonicalId: 'sport:same', version: '1', evidenceRefs: ['e'] }, { contractVersion: CANONICAL_IDENTITY_CONTRACT_VERSION, entityType: 'competition', canonicalId: 'competition:same', sportId: 'sport:same', version: '1', evidenceRefs: ['e'] }, { contractVersion: CANONICAL_IDENTITY_CONTRACT_VERSION, entityType: 'participant', canonicalId: 'participant:same', sportId: 'sport:same', version: '1', evidenceRefs: ['e'] }]) assert.equal(normalizeCanonicalIdentity(entity).ok, true); });
 
-test('exact aliases resolve, unknown/similarity-only aliases do not, and replay is deterministic', () => {
-  const resolved = value(resolveProviderAlias(resolution()));
-  assert.equal(resolved.status, 'resolved'); assert.equal(resolved.canonicalId, 'evt_01HXOpaque');
-  assert.deepEqual(resolveProviderAlias(resolution()), resolveProviderAlias(resolution()));
-  assert.equal(value(resolveProviderAlias(resolution(alias(), []))).status, 'unresolved');
-  const similarity = value(resolveProviderAlias(resolution(alias(), [candidate('evt_similar', { evidenceKind: 'display_name_similarity' })])));
-  assert.equal(similarity.status, 'unresolved'); assert.equal(similarity.reason, 'similarity_evidence_cannot_resolve');
-});
+test('alias state machine accepts every coherent state and rejects every forbidden active/history field', () => { const valid = [alias('resolved'), alias('unresolved'), alias('ambiguous'), alias('quarantined'), alias('superseded', { effectiveTo: boundary })]; for (const item of valid) assert.equal(validateAliasSet(set(item.status === 'superseded' ? item : item)).ok, item.status !== 'superseded');
+  const forbidden = { resolved: ['historicalCanonicalId', 'viableCandidateRefs', 'quarantineReason', 'supersededByAliasRef', 'supersessionReason'], unresolved: ['canonicalId', 'historicalCanonicalId', 'viableCandidateRefs', 'quarantineReason', 'supersededByAliasRef', 'supersessionReason'], ambiguous: ['canonicalId', 'historicalCanonicalId', 'quarantineReason', 'supersededByAliasRef', 'supersessionReason'], quarantined: ['canonicalId', 'historicalCanonicalId', 'supersededByAliasRef', 'supersessionReason'], superseded: ['canonicalId', 'viableCandidateRefs', 'quarantineReason'] };
+  const samples = { canonicalId: 'event:x', historicalCanonicalId: 'event:x', viableCandidateRefs: ['candidate/a', 'candidate/b'], quarantineReason: 'review', supersededByAliasRef: 'alias/new', supersessionReason: 'reason' };
+  for (const [status, fields] of Object.entries(forbidden)) for (const field of fields) { const item = alias(status, { [field]: samples[field] }); error(validateAliasSet(set(item)), 'invalid_alias_state'); }
+  error(validateAliasSet(set(alias('resolved', { canonicalId: undefined }))), 'invalid_input'); error(validateAliasSet(set(alias('ambiguous', { viableCandidateRefs: ['candidate/a'] }))), 'invalid_alias_state'); error(validateAliasSet(set(alias('quarantined', { quarantineReason: undefined }))), 'invalid_input'); });
 
-test('multiple exact candidates quarantine without a winner; duplicates and conflicts fail closed', () => {
-  const ambiguous = value(resolveProviderAlias(resolution(alias(), [candidate('evt_a'), candidate('evt_b')])));
-  assert.equal(ambiguous.status, 'quarantined'); assert.equal('canonicalId' in ambiguous, false); assert.deepEqual(ambiguous.candidateRefs, ['candidate/evt_a', 'candidate/evt_b']);
-  error(resolveProviderAlias(resolution(alias(), [candidate(), candidate('evt_other', { candidateRef: 'candidate/evt_01HXOpaque' })])), 'duplicate_candidate');
-  error(resolveProviderAlias(resolution(alias(), [candidate('evt_x', { sportId: 'sport_boxing' })])), 'identity_conflict');
-  error(resolveProviderAlias(resolution(alias({ canonicalId: 'evt_old', status: 'resolved' }), [candidate('evt_new')])), 'identity_conflict');
-});
+test('stored alias state and resolution result cannot contradict, including hidden winners', () => { const resolved = value(resolve(set(alias('resolved')), [candidate()])); assert.equal(resolved.status, 'resolved'); assert.equal(resolved.canonicalId, 'event:opaque-1'); error(resolve(set(alias('resolved')), [candidate('event:other')]), 'alias_state_contradiction'); error(resolve(set(alias('unresolved')), [candidate()]), 'alias_state_contradiction'); const unknown = value(resolve(set(alias('unresolved')), [])); assert.equal(unknown.status, 'unresolved'); assert.equal('canonicalId' in unknown, false);
+  const ambiguousAlias = alias('ambiguous'); const candidates = [candidate('event:b', 'candidate/b'), candidate('event:a', 'candidate/a')]; const ambiguous = value(resolve(set(ambiguousAlias), candidates)); assert.equal(ambiguous.status, 'ambiguous'); assert.deepEqual(ambiguous.candidateRefs, ['candidate/a', 'candidate/b']); assert.equal('canonicalId' in ambiguous, false); error(resolve(set(ambiguousAlias), [candidate('event:a', 'candidate/a')]), 'alias_state_contradiction'); const quarantined = value(resolve(set(alias('quarantined')), [candidate()])); assert.equal(quarantined.status, 'quarantined'); assert.equal('canonicalId' in quarantined, false); });
 
-test('effective boundaries are inclusive at start, exclusive at end, and supersession preserves history', () => {
-  const ranged = alias({ effectiveTo: later });
-  assert.equal(resolveProviderAlias(resolution(ranged, [candidate()], at)).ok, true);
-  error(resolveProviderAlias(resolution(ranged, [candidate()], later)), 'alias_not_effective', '$.asOf');
-  const superseded = alias({ status: 'superseded', previousCanonicalId: 'evt_old', supersededByAliasRef: 'alias/provider/event-78', supersessionReason: 'provider_rekeyed_event' });
-  const result = value(resolveProviderAlias(resolution(superseded, [], at)));
-  assert.equal(result.status, 'superseded'); assert.equal(result.alias.previousCanonicalId, 'evt_old'); assert.equal(result.reason, 'provider_rekeyed_event');
-});
+test('alias-set validator enforces lifecycle uniqueness, scope, intervals and exact transitions', () => { error(validateAliasSet(set(alias('unresolved'), alias('unresolved'))), 'duplicate_alias_reference'); error(validateAliasSet(set(alias('unresolved'), alias('unresolved', { aliasRef: 'alias/b', sourceId: 'source_b', effectiveFrom: boundary }))), 'alias_scope_conflict'); error(validateAliasSet(set(alias('unresolved'), alias('unresolved', { aliasRef: 'alias/b' }))), 'overlapping_alias_interval');
+  const old = alias('superseded', { effectiveTo: boundary }); const next = alias('resolved', { aliasRef: 'alias/new', effectiveFrom: boundary }); const lifecycle = value(validateAliasSet(set(old, next))); assert.equal(lifecycle.aliases.length, 2); assert.equal(value(resolve(set(old, next), [], at)).status, 'superseded'); assert.equal(value(resolve(set(old, next), [candidate()], boundary)).status, 'resolved'); error(validateAliasSet(set(alias('superseded', { effectiveTo: boundary, supersededByAliasRef: 'alias/missing' }))), 'missing_alias_successor'); error(validateAliasSet(set(alias('superseded', { effectiveTo: boundary, supersededByAliasRef: 'alias/current' }))), 'alias_supersession_cycle'); error(validateAliasSet(set(old, { ...next, effectiveFrom: after })), 'invalid_alias_transition'); });
 
-function fact(ref, overrides = {}) {
-  return { contractVersion: 'observation-fact-v1', observationRef: ref, sourceEnvelopeRef: `envelope/${ref}`, sourceId: 'source_a', providerRef: 'provider/a',
-    eventId: 'event_1', marketId: 'market_h2h', identityVersion: 'identity/1', payloadHash: hash('a'), observedAt: at, receivedAt: at, ...overrides };
-}
+test('alias-set limits are enforced before traversal', () => { const aliases = Array.from({ length: MAX_ALIASES + 1 }, (_, index) => alias('unresolved', { aliasRef: `alias/${index}`, effectiveFrom: new Date(Date.parse(at) + index * 60_000).toISOString(), effectiveTo: new Date(Date.parse(at) + (index + 1) * 60_000).toISOString() })); error(validateAliasSet(set(...aliases)), 'limit_exceeded'); });
+
+function scope(overrides = {}) { return { contractVersion: OBSERVATION_SCOPE_VERSION, sportId: 'sport:opaque-1', competitionId: 'competition:opaque-1', eventId: 'event:opaque-1', marketId: 'market_h2h', outcomeIds: ['outcome_a', 'outcome_b'], identityContractVersion: CANONICAL_IDENTITY_CONTRACT_VERSION, ...overrides }; }
+function fact(ref, overrides = {}) { return { contractVersion: 'observation-fact-v2', observationRef: ref, sourceEnvelopeRef: 'envelope/source-row-1', sourceId: 'source_a', providerRef: 'provider/a', scope: scope(), payloadHash: hash('a'), observedAt: at, receivedAt: at, ...overrides }; }
 const classify = (incoming, existing = []) => classifyObservation({ incoming, existing, policy: DEDUPLICATION_POLICY });
 
-test('observations classify new and exact duplicates idempotently', () => {
-  assert.equal(value(classify(fact('obs/new'))).classification, 'new');
-  const original = fact('obs/1');
-  assert.equal(value(classify({ ...original }, [original])).classification, 'exact_duplicate');
-  assert.equal(value(classify(fact('obs/reimport'), [original])).classification, 'exact_duplicate');
-  assert.deepEqual(classify(fact('obs/reimport'), [original]), classify(fact('obs/reimport'), [original]));
-});
+test('observation scope requires all dimensions, tagged parents, unique canonical outcome order', () => { for (const field of ['sportId', 'competitionId', 'eventId', 'marketId', 'outcomeIds', 'identityContractVersion']) { const invalid = scope(); delete invalid[field]; error(classify(fact('obs/1', { scope: invalid })), field === 'outcomeIds' ? 'invalid_input' : field.endsWith('Id') ? 'invalid_identifier' : 'invalid_reference'); } error(classify(fact('obs/1', { scope: scope({ sportId: 'competition:same' }) })), 'invalid_entity_id'); error(classify(fact('obs/1', { scope: scope({ outcomeIds: ['outcome_a', 'outcome_a'] }) })), 'duplicate_outcome'); error(classify(fact('obs/1', { scope: scope({ outcomeIds: ['outcome_b', 'outcome_a'] }) })), 'noncanonical_outcome_order'); });
 
-test('valid corrections are append-only and record deterministic ordering disagreements', () => {
-  const parent = fact('obs/1', { sourceSequence: '10' });
-  const correction = fact('obs/2', { payloadHash: hash('b'), correctsObservationRef: 'obs/1', sourceSequence: '11', observedAt: '2026-08-28T00:59:00.000Z' });
-  const result = value(classify(correction, [parent]));
-  assert.equal(result.classification, 'correction'); assert.deepEqual(result.correctionChain, ['obs/2', 'obs/1']);
-  assert.equal(result.ordering.primaryKey, 'source_sequence'); assert.equal(result.ordering.sequenceTimestampDisagreement, true);
-  assert.equal(parent.payloadHash, hash('a'));
-});
+test('complete exact-fact tuple includes source envelope and every immutable scope dimension', () => { const original = fact('obs/1'); assert.equal(value(classify(fact('obs/reimport'), [original])).classification, 'exact_duplicate'); const variations = [{ sourceEnvelopeRef: 'envelope/other' }, { sourceId: 'source_b' }, { providerRef: 'provider/b' }, { scope: scope({ sportId: 'sport:other' }) }, { scope: scope({ competitionId: 'competition:other' }) }, { scope: scope({ eventId: 'event:other' }) }, { scope: scope({ marketId: 'market_line' }) }, { scope: scope({ outcomeIds: ['outcome_a', 'outcome_c'] }) }, { scope: scope({ identityContractVersion: 'identity/other' }) }, { observedAt: '2026-08-28T00:59:00.000Z' }, { receivedAt: '2026-08-28T01:01:00.000Z' }, { sourceSequence: '2' }]; for (const variation of variations) assert.equal(value(classify(fact('obs/2', variation), [original])).classification, 'conflict'); });
 
-test('correction chains reject missing parents, cycles, cross-scope links and already-superseded parents', () => {
-  error(classify(fact('obs/2', { payloadHash: hash('b'), correctsObservationRef: 'obs/missing' })), 'missing_parent');
-  const a = fact('obs/a', { payloadHash: hash('b'), correctsObservationRef: 'obs/b' });
-  const b = fact('obs/b', { payloadHash: hash('c'), correctsObservationRef: 'obs/a' });
-  error(classify(fact('obs/incoming'), [a, b]), 'correction_cycle');
-  error(classify(fact('obs/incoming'), [fact('obs/1'), fact('obs/2', { payloadHash: hash('b'), correctsObservationRef: 'obs/1', marketId: 'market_line' })]), 'correction_scope_conflict');
-  for (const override of [{ sourceId: 'source_b' }, { eventId: 'event_2' }, { marketId: 'market_line' }, { providerRef: 'provider/b' }]) {
-    const result = value(classify(fact('obs/2', { payloadHash: hash('b'), correctsObservationRef: 'obs/1', ...override }), [fact('obs/1')]));
-    assert.equal(result.classification, 'conflict');
-  }
-  const corrected = fact('obs/2', { payloadHash: hash('b'), correctsObservationRef: 'obs/1' });
-  assert.equal(value(classify(fact('obs/3', { payloadHash: hash('c'), correctsObservationRef: 'obs/1' }), [fact('obs/1'), corrected])).classification, 'already_superseded');
-});
+test('existing correction graph is fully validated even for unrelated incoming facts', () => { const root = fact('obs/root'), correction = fact('obs/c1', { payloadHash: hash('b'), correctsObservationRef: 'obs/root' }); error(classify(fact('obs/new', { payloadHash: hash('f') }), [correction]), 'missing_parent'); const fork = fact('obs/c2', { payloadHash: hash('c'), correctsObservationRef: 'obs/root' }); error(classify(fact('obs/new', { payloadHash: hash('f') }), [root, correction, fork]), 'correction_fork'); const cross = fact('obs/cross', { payloadHash: hash('b'), correctsObservationRef: 'obs/root', scope: scope({ eventId: 'event:other' }) }); error(classify(fact('obs/new', { payloadHash: hash('f') }), [root, cross]), 'correction_scope_conflict'); const unchanged = fact('obs/unchanged', { correctsObservationRef: 'obs/root' }); error(classify(fact('obs/new', { payloadHash: hash('f') }), [root, unchanged]), 'contradictory_supersession'); const a = fact('obs/a', { payloadHash: hash('b'), correctsObservationRef: 'obs/b' }), b = fact('obs/b', { payloadHash: hash('c'), correctsObservationRef: 'obs/a' }); error(classify(fact('obs/new', { payloadHash: hash('f') }), [a, b]), 'correction_cycle'); error(classify(fact('obs/new', { payloadHash: hash('f') }), [root, { ...root }]), 'repeated_reference'); });
 
-test('equal hashes with conflicting metadata conflict and different hashes are not implicit corrections', () => {
-  assert.equal(value(classify(fact('obs/2', { eventId: 'event_2' }), [fact('obs/1')])).classification, 'conflict');
-  assert.equal(value(classify(fact('obs/2', { payloadHash: hash('b') }), [fact('obs/1')])).classification, 'new');
-});
+test('valid corrections remain append-only and incoming forks are already superseded', () => { const root = fact('obs/root', { sourceSequence: '1' }), correction = fact('obs/c1', { payloadHash: hash('b'), correctsObservationRef: 'obs/root', sourceSequence: '2', observedAt: '2026-08-28T00:59:00.000Z' }); const result = value(classify(correction, [root])); assert.equal(result.classification, 'correction'); assert.equal(result.ordering.sequenceTimestampDisagreement, true); assert.equal(root.payloadHash, hash('a')); const other = fact('obs/c2', { payloadHash: hash('c'), correctsObservationRef: 'obs/root' }); assert.equal(value(classify(other, [root, correction])).classification, 'already_superseded'); });
 
-test('SHA-256 verifies known empty and UTF-8 vectors and reports mismatches', async () => {
-  const empty = await verifyPayloadHash({ payloadHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', replayMode: 'full_payload_retained' }, new Uint8Array());
-  assert.equal(value(empty).status, 'verified');
-  const utf8 = await verifyPayloadHash({ payloadHash: 'sha256:4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c', replayMode: 'hash_only_verification' }, 'é');
-  assert.equal(value(utf8).status, 'verified'); assert.equal(value(utf8).payloadByteLength, 2); assert.equal(value(utf8).payloadKind, 'utf8_string');
-  assert.equal(value(await verifyPayloadHash({ payloadHash: hash('0'), replayMode: 'full_payload_retained' }, new Uint8Array())).status, 'mismatch');
-});
+test('exported ordering boundary validates hostile and malformed runtime input', () => { const decision = value(compareObservationOrder({ first: fact('obs/a', { sourceSequence: '1' }), second: fact('obs/b', { sourceSequence: '2' }) })); assert.equal(decision.order, 'first_before_second'); for (const input of [null, undefined, 1, 'x', {}, { first: null, second: fact('obs/b') }]) error(compareObservationOrder(input), 'invalid_input'); const hostile = new Proxy({}, { ownKeys() { throw new Error('hidden'); } }); error(compareObservationOrder(hostile), 'invalid_input'); error(compareObservationOrder({ first: fact('obs/a', { observationRef: 'x'.repeat(257) }), second: fact('obs/b') }), 'invalid_reference'); });
 
-test('payload limit accepts exact maximum and rejects one byte over before hashing', async () => {
-  const maximum = new Uint8Array(PAYLOAD_HASH_POLICY.maxPayloadBytes);
-  const expected = `sha256:${createHash('sha256').update(maximum).digest('hex')}`;
-  assert.equal(value(await verifyPayloadHash({ payloadHash: expected, replayMode: 'full_payload_retained' }, maximum)).status, 'verified');
-  const oversized = new Uint8Array(PAYLOAD_HASH_POLICY.maxPayloadBytes + 1);
-  error(await verifyPayloadHash({ payloadHash: expected, replayMode: 'full_payload_retained' }, oversized), 'payload_too_large', '$payload');
-});
+test('fact and graph limits fail closed with frozen results', () => { const tooMany = Array.from({ length: MAX_OBSERVATION_FACTS + 1 }, (_, index) => fact(`obs/${index}`, { payloadHash: `sha256:${index.toString(16).padStart(64, '0')}` })); error(classify(fact('obs/new', { payloadHash: hash('f') }), tooMany), 'limit_exceeded'); const result = classify(fact('obs/new')); assert.ok(Object.isFrozen(result)); assert.ok(Object.isFrozen(result.value.scope)); });
 
-test('missing bytes are explicitly not verifiable for every retention mode', async () => {
-  for (const replayMode of ['full_payload_retained', 'hash_and_retrievable_locator', 'hash_only_verification', 'not_fully_replayable']) {
-    const result = value(await verifyPayloadHash({ payloadHash: hash('0'), replayMode }));
-    assert.equal(result.status, 'not_verifiable');
-  }
-});
+test('payload verification encodes once, handles multibyte boundaries, and hashes byte subviews', async () => { const Original = globalThis.TextEncoder; let calls = 0; globalThis.TextEncoder = class extends Original { encode(value) { calls += 1; return super.encode(value); } }; try { const text = 'é'; const expected = `sha256:${createHash('sha256').update(text).digest('hex')}`; assert.equal(value(await verifyPayloadHash({ payloadHash: expected, replayMode: 'hash_only_verification' }, text)).status, 'verified'); assert.equal(calls, 1); } finally { globalThis.TextEncoder = Original; }
+  const exact = 'é'.repeat(PAYLOAD_HASH_POLICY.maxPayloadBytes / 2), exactHash = `sha256:${createHash('sha256').update(exact).digest('hex')}`; assert.equal(value(await verifyPayloadHash({ payloadHash: exactHash, replayMode: 'full_payload_retained' }, exact)).payloadByteLength, PAYLOAD_HASH_POLICY.maxPayloadBytes); error(await verifyPayloadHash({ payloadHash: exactHash, replayMode: 'full_payload_retained' }, `${exact}é`), 'payload_too_large'); const backing = new Uint8Array([9, 1, 2, 3, 9]), subview = backing.subarray(1, 4), subHash = `sha256:${createHash('sha256').update(subview).digest('hex')}`; assert.equal(value(await verifyPayloadHash({ payloadHash: subHash, replayMode: 'full_payload_retained' }, subview)).status, 'verified'); });
 
-test('all boundaries contain malformed JavaScript, hostile getters/proxies, limits and unknown credentials', async () => {
-  const getter = {}; Object.defineProperty(getter, 'contractVersion', { enumerable: true, get() { throw new Error('secret'); } });
-  error(normalizeCanonicalIdentity(getter), 'invalid_input');
-  error(resolveProviderAlias(new Proxy({}, { ownKeys() { throw new Error('secret'); } })), 'invalid_input');
-  error(classifyObservation(new Proxy({}, { getPrototypeOf() { throw new Error('secret'); } })), 'invalid_input');
-  error(normalizeCanonicalIdentity({ ...identity(), API_KEY: 'must-not-leak' }), 'credential_field');
-  error(normalizeCanonicalIdentity(identity({ canonicalId: 'x'.repeat(129) })), 'invalid_identifier');
-  error(resolveProviderAlias(resolution(alias(), Array.from({ length: MAX_ALIAS_CANDIDATES + 1 }, (_, index) => candidate(`evt_${index}`)))), 'limit_exceeded');
-  error(classify(fact('obs/new'), Array.from({ length: MAX_OBSERVATION_FACTS + 1 }, (_, index) => fact(`obs/${index}`, { payloadHash: `sha256:${index.toString(16).padStart(64, '0')}` }))), 'limit_exceeded');
-  const hostileBytes = new Proxy(new Uint8Array([1]), { getPrototypeOf() { throw new Error('secret'); } });
-  error(await verifyPayloadHash({ payloadHash: hash('0'), replayMode: 'full_payload_retained' }, hostileBytes), 'invalid_payload');
-});
+test('payload empty, one-over, mismatch, not-verifiable and hostile behaviour is preserved', async () => { const emptyHash = 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'; assert.equal(value(await verifyPayloadHash({ payloadHash: emptyHash, replayMode: 'full_payload_retained' }, new Uint8Array())).status, 'verified'); assert.equal(value(await verifyPayloadHash({ payloadHash: hash('0'), replayMode: 'full_payload_retained' }, new Uint8Array())).status, 'mismatch'); error(await verifyPayloadHash({ payloadHash: hash('0'), replayMode: 'full_payload_retained' }, new Uint8Array(PAYLOAD_HASH_POLICY.maxPayloadBytes + 1)), 'payload_too_large'); for (const replayMode of ['full_payload_retained', 'hash_and_retrievable_locator', 'hash_only_verification', 'not_fully_replayable']) assert.equal(value(await verifyPayloadHash({ payloadHash: hash('0'), replayMode })).status, 'not_verifiable'); const hostile = new Proxy(new Uint8Array([1]), { getPrototypeOf() { throw new Error('hidden'); } }); error(await verifyPayloadHash({ payloadHash: hash('0'), replayMode: 'full_payload_retained' }, hostile), 'invalid_payload'); });
 
-test('public decisions and errors are recursively frozen and use no clock, randomness or network', () => {
-  const result = resolveProviderAlias(resolution()); assert.ok(Object.isFrozen(result)); assert.ok(Object.isFrozen(result.value)); assert.ok(Object.isFrozen(result.value.policy));
-  const failed = classifyObservation({}); assert.ok(Object.isFrozen(failed)); assert.ok(Object.isFrozen(failed.error));
-  const originalNow = Date.now; const originalRandom = Math.random; Date.now = () => { throw new Error('clock'); }; Math.random = () => { throw new Error('random'); };
-  try { assert.equal(resolveProviderAlias(resolution()).ok, true); assert.equal(classify(fact('obs/new')).ok, true); }
-  finally { Date.now = originalNow; Math.random = originalRandom; }
-});
+test('replay stays deterministic without clock, randomness or network', () => { const input = { aliasSet: set(alias('resolved')), candidates: [candidate()], asOf: at, policy: ALIAS_RESOLUTION_POLICY }; assert.deepEqual(resolveProviderAlias(input), resolveProviderAlias(input)); const now = Date.now, random = Math.random; Date.now = () => { throw new Error('clock'); }; Math.random = () => { throw new Error('random'); }; try { assert.equal(resolveProviderAlias(input).ok, true); assert.equal(classify(fact('obs/new')).ok, true); } finally { Date.now = now; Math.random = random; } });

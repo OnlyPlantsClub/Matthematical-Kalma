@@ -6,19 +6,20 @@ The implementation is split across [`canonical-identity.ts`](../src/domain/intel
 
 ## Canonical identity model
 
-`canonical-identity-v1` represents sport, competition, participant and event identities. Canonical IDs are validated opaque identifiers supplied by the catalogue owner. They are never generated from names. Competition requires a sport parent; participant requires a sport and may declare a competition; event requires sport, competition, a canonical UTC-millisecond start, and 2–16 unique participant/role records. Home, away and draw are singleton roles; competitor may repeat. Every identity and role carries a version and one or more evidence references.
+`canonical-identity-v2` represents sport, competition, participant and event identities. IDs use a versioned runtime tag—`sport:`, `competition:`, `participant:`, `event:` or `role:`—followed by an opaque identifier of no implied human meaning. The tag prevents cross-entity substitution; the suffix is never generated from a name. Competition requires a typed sport parent; participant requires a typed sport and may declare a typed competition; event requires typed sport and competition parents, a canonical UTC-millisecond start, and 2–16 unique participant/role-ID records. Every identity and role carries a version and evidence.
 
 Display names are deliberately absent from identity authority. They may appear in separately retained evidence, but editing a display name cannot alter a canonical ID. Event time is identity context in this bounded contract; a changed source time therefore conflicts or requires a newly reviewed version/mapping rather than silently moving an event.
 
 ## Alias lifecycle and quarantine
 
-`provider-alias-v1` binds an entity type, source ID, provider reference and external key to an effective `[from, to)` interval, version and evidence. Its states are `resolved`, `unresolved`, `ambiguous`, `quarantined` and `superseded`. A resolved stored alias requires a canonical ID. A superseded alias preserves its previous canonical ID, successor alias reference and bounded reason.
+`provider-alias-v2` has an explicit state machine. `resolved` requires only its active `canonicalId`; `unresolved` forbids a winner; `ambiguous` requires at least two sorted viable candidate references and forbids a winner; `quarantined` requires evidence and a reason and forbids a winner; `superseded` forbids active `canonicalId` and requires `historicalCanonicalId`, successor reference and reason. Stored state and resolution result must agree or `alias_state_contradiction` fails closed.
 
-Resolution uses policy `exact-evidence-only` version `1`:
+Resolution uses policy `exact-evidence-only-alias-set` version `2` and a validated `provider-alias-set-v1`:
 
-- zero exact candidates is unresolved; display-name similarity is retained as evidence but cannot resolve;
-- one exact source-key candidate resolves;
-- multiple exact candidates return a quarantined result with sorted candidate references and no canonical winner;
+- unique references and exact scope agreement are mandatory across at most 16 aliases;
+- effective intervals may touch at `[from,to)` boundaries but never overlap;
+- supersession targets must exist, begin exactly at the predecessor end, and form no self-link, cycle or chain beyond 16;
+- resolved/unresolved/ambiguous stored state is confirmed against the exact candidate set; candidate input order never implies preference;
 - duplicate candidates, mismatched entity/source/provider/key, or conflicting sport/competition/event-time context fail closed;
 - effective start is inclusive and effective end is exclusive.
 
@@ -26,9 +27,9 @@ All decisions retain the alias, policy, reason, candidate references and combine
 
 ## Deduplication and corrections
 
-`observation-fact-v1` is an immutable reference to a source envelope, canonical source/provider/event/market/identity version, upstream payload hash and observation/receipt times. Optional source sequence and `correctsObservationRef` are provenance, not update instructions.
+`observation-fact-v2` includes `observation-identity-scope-v1`: typed sport, competition and event IDs; market ID; a unique strictly lexicographically ordered outcome-ID set; and identity-contract version. Optional source sequence and `correctsObservationRef` remain provenance.
 
-Policy `append-only-observation-deduplication` version `1` classifies an incoming fact as:
+Policy `append-only-observation-deduplication` version `2` classifies an incoming fact as:
 
 - `new`: no exact duplicate and no explicit correction parent;
 - `exact_duplicate`: the same reference/fact, or equal payload and observation/identity metadata under a different ingestion reference;
@@ -36,7 +37,7 @@ Policy `append-only-observation-deduplication` version `1` classifies an incomin
 - `conflict`: a reference is reused, an equal hash has conflicting metadata, a correction crosses scope, or a correction does not change payload;
 - `already_superseded`: the incoming fact or its requested parent already has an appended correction.
 
-The classifier validates the whole supplied in-memory graph. Missing parents and cycles fail with typed errors. Original facts are never changed or deleted. A valid correction decision includes its immutable parent, full chain, source-envelope evidence and ordering decision.
+The exact-fact identity tuple is source-envelope reference, source/provider, complete structured identity scope, payload hash, observation/receipt times, optional sequence and optional correction parent; observation reference may differ on an idempotent re-import. Any tuple disagreement with an equal hash is a conflict. The classifier validates the whole supplied graph before considering the incoming fact: duplicate references, missing parents, cycles, forks/multiple successors, cross-scope parents, unchanged-payload corrections and chains beyond 16 fail even when the incoming fact is unrelated.
 
 When both source sequences are canonical non-negative integers and differ, sequence orders the facts. Otherwise canonical `observedAt`, then `receivedAt`, then opaque observation reference provides a total deterministic order. A sequence/time disagreement is recorded rather than hidden. This policy does not claim which provider fact is substantively correct.
 
@@ -44,7 +45,7 @@ When both source sequences are canonical non-negative integers and differ, seque
 
 `retained-payload-sha256` version `1` verifies the existing lowercase `sha256:<64 hex>` format using platform Web Crypto SHA-256. Raw `Uint8Array` (including Node Buffer) is preferred. Strings are explicitly UTF-8 encoded. Objects are not accepted and no canonical JSON format is invented.
 
-The maximum is 1,048,576 bytes (1 MiB). Byte length is checked before copying or hashing. Unsupported prototypes, hostile/detached views and malformed payloads return frozen errors. Expected and computed digest bytes are compared without digest-dependent early exit where practical. Empty and exact-limit payloads are valid; one byte over is rejected before hashing.
+The maximum is 1,048,576 bytes (1 MiB). Strings receive an allocation-free UTF-8 byte-count pass (including surrogate handling), then exactly one encoding. Byte views are validated before one defensive copy so async caller mutation cannot alter the digest. The validated buffer is passed directly to Web Crypto; any additional copying inside the platform is outside application control. Empty, multibyte exact-limit and subview payloads are valid; one byte over is rejected before encoding/copying/hashing.
 
 When bytes are absent, every replay mode returns `not_verifiable`; in particular, hash-only and non-fully-replayable modes are never reported as successful verification. A supplied byte/string payload can be verified even for hash-only mode. The result states expected/actual hashes, byte length, input kind, replay mode and policy. It never accepts or returns credentials.
 

@@ -42,9 +42,9 @@ Nothing in this register authorises data acquisition, real-money use or provider
 - **Identity authority:** opaque canonical IDs are not derived from display names. Effective-dated aliases resolve only from one exact evidence-backed source/provider/external-key candidate with matching entity and sport/competition/event-time context. Similarity is evidence only; ambiguity quarantines without a winner.
 - **Observation corrections:** facts are append-only. An explicit parent and exact source/provider/event/market/identity scope are mandatory; different hashes alone are insufficient. Missing parents, cycles, reused references and equal-hash metadata disagreement fail closed.
 - **Ordering:** comparable integer source sequence precedes observation time, receipt time and opaque reference; sequence/time disagreement is retained in the decision.
-- **Hash verification:** supplied bytes use Web Crypto SHA-256 under a 1 MiB pre-hash limit; strings are UTF-8; object serialization is undefined. Missing retained bytes are `not_verifiable`.
+- **Resolved verification boundary:** when retained payload bytes are supplied, compare them with the supplied canonical SHA-256 using Web Crypto under a 1 MiB pre-hash limit; strings explicitly mean UTF-8, object serialization is undefined, and missing bytes are `not_verifiable`.
 
-Still open: persistence constraints and retention duration, provider/result sources, sport-specific event revision tolerances, review workflow for quarantine, and production-scale graph/payload limits.
+Still open: provider trust in the supplied digest and timestamps; how providers/adapters produce the canonical payload bytes/hash; whether and how long raw bytes may be retained; locator durability; the production retrieval/verification workflow; persistence constraints; provider/result sources; sport-specific event revision tolerances; quarantine operations; and production-scale graph/payload limits.
 
 | ID | Decision needed | Proposed starting point / experiment |
 | --- | --- | --- |
