@@ -27,7 +27,7 @@ Exit: passed — boundary, invariant, precision and replay tests pass; independe
 
 ## Phase 2 — Manual/sample ingestion
 
-**Status:** the provider-neutral canonical identity subset and the TASK-21 canonical result-observation and settlement-fact slice passed independent validation and were integrated into canonical `main`. TASK-22 now has a feature-branch implementation of authenticated persistence for synthetic and explicitly user-owned manual fixtures, awaiting independent review and integration. Phase 2 and TASK-04 remain incomplete; live provider ingestion, APIs, production operations and deployment remain deferred.
+**Status:** the provider-neutral canonical identity subset and the TASK-21 canonical result-observation and settlement-fact slice passed independent validation and were integrated into canonical `main`. TASK-22 has a feature-branch implementation of authenticated persistence, stable append-only key lifecycle and repository-driven atomic rotation for synthetic and explicitly user-owned manual fixtures; it remains unintegrated and awaiting another independent read-only review. Phase 2 and TASK-04 remain incomplete; live provider ingestion, APIs, production operations and deployment remain deferred.
 
 - Implement the adapter contract for approved manual/file fixtures only.
 - Normalise source, event, participant, market, outcome, quote and result candidates; quarantine ambiguity.
